@@ -72,7 +72,7 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 				{
 					context.Step("HandleRuntimeHelperInitializeArray: single-dim", inst);
 					var tempStore = context.Function.RegisterVariable(VariableKind.InitializerTarget, v.Type);
-					var block = BlockFromInitializer(tempStore, elementType, arrayLength, values);
+					var block = BlockFromInitializer(context, tempStore, elementType, arrayLength, values);
 					StLoc newStloc = new StLoc(v, block);
 					if (context.CalculateILSpans) {
 						body.Instructions[pos].AddSelfAndChildrenRecursiveILSpans(newStloc.ILSpans);
@@ -150,7 +150,7 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 					if (DecodeArrayInitializer(elementType, initialValue, new[] { size }, valuesList))
 					{
 						var tempStore = context.Function.RegisterVariable(VariableKind.InitializerTarget, new ArrayType(context.TypeSystem, elementType));
-						replacement = BlockFromInitializer(tempStore, elementType, new[] { size }, valuesList.ToArray());
+						replacement = BlockFromInitializer(context, tempStore, elementType, new[] { size }, valuesList.ToArray());
 						return true;
 					}
 				}
@@ -210,7 +210,7 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 				if (HandleRuntimeHelpersInitializeArray(body, pos + 1, v, elementType, length, out var values, out var initArrayPos))
 				{
 					context.Step("HandleRuntimeHelpersInitializeArray: multi-dim", inst);
-					var block = BlockFromInitializer(v, elementType, length, values);
+					var block = BlockFromInitializer(context, v, elementType, length, values);
 					StLoc newStloc = new StLoc(v, block);
 					if (context.CalculateILSpans) {
 						body.Instructions[pos].AddSelfAndChildrenRecursiveILSpans(newStloc.ILSpans);
@@ -677,19 +677,22 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 				&& initializer.OpCode == OpCode.Block;
 		}
 
-		static Block BlockFromInitializer(ILVariable v, IType elementType, int[] arrayLength, ILInstruction[] values)
+		static Block BlockFromInitializer(StatementTransformContext context, ILVariable v, IType elementType, int[] arrayLength, ILInstruction[] values)
 		{
 			var block = new Block(BlockKind.ArrayInitializer);
 			block.Instructions.Add(new StLoc(v, new NewArr(elementType, arrayLength.Select(l => (ILInstruction)new LdcI4(l)).ToArray())));
 			int step = arrayLength.Length + 1;
 
-			var indices = new List<ILInstruction>();
-			for (int i = 0; i < values.Length / step; i++)
+			var length = values.Length / step;
+			var truncatedLength = Math.Min(context.Settings.MaxArrayElements, length);
+
+			var indices = new List<ILInstruction>(step - 1);
+			int i = 0;
+			for (; i < truncatedLength; i++)
 			{
 				// values array is filled backwards
 				var value = values[step * i];
 
-				indices.EnsureCapacity(step - 1);
 				for (int j = step - 1; j >= 1; j--)
 				{
 					indices.Add(values[step * i + j]);
@@ -698,6 +701,14 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 				block.Instructions.Add(StElem(new LdLoc(v), indices.ToArray(), value, elementType));
 				indices.Clear();
 			}
+
+			if (truncatedLength != length && truncatedLength > 0)
+			{
+				for (int j = step - 1; j >= 1; j--)
+					indices.Add(values[step * i + j]);
+				block.Instructions.Add(StElem(new LdLoc(v), indices.ToArray(), new LdStr($"Not showing all elements because this array is too big ({length} elements)"), elementType));
+			}
+
 			block.FinalInstruction = new LdLoc(v);
 			return block;
 		}
@@ -789,7 +800,7 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 				return false;
 			context.Step("InlineRuntimeHelpersInitializeArray: single-dim", inst);
 			var tempStore = context.Function.RegisterVariable(VariableKind.InitializerTarget, new ArrayType(context.TypeSystem, elementType, arrayLength.Length));
-			var block = BlockFromInitializer(tempStore, elementType, arrayLength, valuesList.ToArray());
+			var block = BlockFromInitializer(context, tempStore, elementType, arrayLength, valuesList.ToArray());
 			if (context.CalculateILSpans)
 				body.Instructions[pos].AddSelfAndChildrenRecursiveILSpans(block.ILSpans);
 			body.Instructions[pos] = block;

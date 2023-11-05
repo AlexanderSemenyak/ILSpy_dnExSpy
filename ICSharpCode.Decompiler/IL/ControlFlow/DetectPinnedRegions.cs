@@ -964,6 +964,11 @@ namespace ICSharpCode.Decompiler.IL.ControlFlow
 			if (targetBlock.Parent == body)
 			{
 				// remove old entry point
+				if (context.CalculateILSpans)
+				{
+					body.Blocks[0].AddSelfAndChildrenRecursiveILSpans(pinnedRegion.Init.ILSpans);
+					body.Blocks[adjustOffsetToStringData.ChildIndex].AddSelfAndChildrenRecursiveILSpans(pinnedRegion.Init.ILSpans);
+				}
 				body.Blocks.RemoveAt(0);
 				if (adjustOffsetToStringData is not null)
 					body.Blocks.RemoveAt(adjustOffsetToStringData.ChildIndex);
@@ -974,6 +979,13 @@ namespace ICSharpCode.Decompiler.IL.ControlFlow
 			else
 			{
 				// pinned region has empty body, immediately jumps to targetBlock which is outside
+				if (context.CalculateILSpans)
+				{
+					for (var i = 0; i < body.Blocks[0].Instructions.Count; i++)
+						body.Blocks[0].Instructions[i].AddSelfAndChildrenRecursiveILSpans(pinnedRegion.Init.ILSpans);
+					for (int i = 0; i < body.Blocks.Count - 1; i++)
+						body.Blocks[i + 1].AddSelfAndChildrenRecursiveILSpans(pinnedRegion.Init.ILSpans);
+				}
 				body.Blocks[0].Instructions.Clear();
 				body.Blocks.RemoveRange(1, body.Blocks.Count - 1);
 				body.Blocks[0].Instructions.Add(new Branch(targetBlock));
