@@ -1124,9 +1124,9 @@ namespace ICSharpCode.Decompiler.CSharp
 			int i = 0;
 			foreach (var parameter in entity.GetChildrenByRole(Roles.Parameter))
 			{
-				if (string.IsNullOrEmpty(parameter.Name) && !parameter.Type.IsArgList())
+				if (string.IsNullOrWhiteSpace(parameter.Name) && !parameter.Type.IsArgList())
 				{
-					// needs to be consistent with logic in ILReader.CreateILVarable(ParameterDefinition)
+					// needs to be consistent with logic in ILReader.CreateILVarable
 					parameter.Name = "P_" + i;
 				}
 				i++;
@@ -1193,10 +1193,6 @@ namespace ICSharpCode.Decompiler.CSharp
 					}
 				}
 
-				decompileRun.EnumValueDisplayMode = typeDef.Kind == TypeKind.Enum
-					? DetectBestEnumValueDisplayMode(typeDef)
-					: null;
-
 				// With C# 9 records, the relative order of fields and properties matters:
 				IEnumerable<IMember> fieldsAndProperties = recordDecompiler?.FieldsAndProperties
 					?? typeDef.Fields.Concat<IMember>(typeDef.Properties);
@@ -1260,7 +1256,9 @@ namespace ICSharpCode.Decompiler.CSharp
 				}
 				if (typeDecl.ClassType == ClassType.Enum)
 				{
-					switch (decompileRun.EnumValueDisplayMode)
+					Debug.Assert(typeDef.Kind == TypeKind.Enum);
+					EnumValueDisplayMode displayMode = DetectBestEnumValueDisplayMode(typeDef);
+					switch (displayMode)
 					{
 						case EnumValueDisplayMode.FirstOnly:
 							foreach (var enumMember in typeDecl.Members.OfType<EnumMemberDeclaration>().Skip(1)) {
@@ -1276,13 +1274,33 @@ namespace ICSharpCode.Decompiler.CSharp
 							}
 							break;
 						case EnumValueDisplayMode.All:
-						case EnumValueDisplayMode.AllHex:
 							// nothing needs to be changed.
+							break;
+						case EnumValueDisplayMode.AllHex:
+							foreach (var enumMember in typeDecl.Members.OfType<EnumMemberDeclaration>())
+							{
+								var constantValue = (enumMember.GetSymbol() as ICSharpCode.Decompiler.TypeSystem.IField)?.GetConstantValue();
+								if (constantValue == null || enumMember.Initializer is not PrimitiveExpression pe)
+								{
+									continue;
+								}
+								long initValue = (long)CSharpPrimitiveCast.Cast(TypeCode.Int64, constantValue, false);
+								if (initValue >= 10)
+								{
+									pe.Format = LiteralFormat.HexadecimalNumber;
+								}
+							}
 							break;
 						default:
 							throw new ArgumentOutOfRangeException();
 					}
-					decompileRun.EnumValueDisplayMode = null;
+					foreach (var item in typeDecl.Members)
+					{
+						if (item is not EnumMemberDeclaration)
+						{
+							typeDecl.InsertChildBefore(item, new Comment(" error: nested types are not permitted in C#."), Roles.Comment);
+						}
+					}
 				}
 				return typeDecl;
 			} catch (Exception innerException) when (!(innerException is OperationCanceledException || innerException is DecompilerException)) {
@@ -1433,7 +1451,7 @@ namespace ICSharpCode.Decompiler.CSharp
 				var typeSystemAstBuilder = CreateAstBuilder(decompileRun.Settings);
 				var methodDecl = typeSystemAstBuilder.ConvertEntity(method);
 				int lastDot = method.Name.LastIndexOf('.');
-				if (method.IsExplicitInterfaceImplementation && lastDot >= 0)
+				if (methodDecl is not OperatorDeclaration && method.IsExplicitInterfaceImplementation && lastDot >= 0)
 				{
 					methodDecl.Name = method.Name.Substring(lastDot + 1);
 				}
@@ -1742,14 +1760,9 @@ namespace ICSharpCode.Decompiler.CSharp
 				if (decompilationContext.CurrentTypeDefinition.Kind == TypeKind.Enum && field.IsConst) {
 					var enumDec = new EnumMemberDeclaration { Name = field.Name };
 					object constantValue = field.GetConstantValue();
-					if (constantValue != null) {
-						long initValue = (long)CSharpPrimitiveCast.Cast(TypeCode.Int64, constantValue, false);
+					if (constantValue != null)
+					{
 						enumDec.Initializer = typeSystemAstBuilder.ConvertConstantValue(decompilationContext.CurrentTypeDefinition.EnumUnderlyingType, constantValue);
-						if (enumDec.Initializer is PrimitiveExpression primitive
-							&& initValue >= 10 && decompileRun.EnumValueDisplayMode == EnumValueDisplayMode.AllHex)
-						{
-							primitive.Format = LiteralFormat.HexadecimalNumber;
-						}
 					}
 					enumDec.Attributes.AddRange(field.GetAttributes().Select(a => new AttributeSection(typeSystemAstBuilder.ConvertAttribute(a))));
 					enumDec.AddAnnotation(new MemberResolveResult(null, field));

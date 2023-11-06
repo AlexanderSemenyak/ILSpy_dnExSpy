@@ -215,7 +215,7 @@ namespace ICSharpCode.Decompiler.CSharp
 			{
 				value = exprBuilder.Translate(strToInt.Argument)
 					.ConvertTo(
-						typeSystem.FindType(KnownTypeCode.String),
+						strToInt.ExpectedType,
 						exprBuilder,
 						// switch statement does support implicit conversions in general, however, the rules are
 						// not very intuitive and in order to prevent bugs, we emit an explicit cast.
@@ -396,8 +396,14 @@ namespace ICSharpCode.Decompiler.CSharp
 					return new YieldBreakStatement().WithILInstruction(inst);
 				else if (!inst.Value.MatchNop())
 				{
+					bool isLambdaOrExprTree = currentFunction.Kind is ILFunctionKind.ExpressionTree or ILFunctionKind.Delegate;
 					var expr = exprBuilder.Translate(inst.Value, typeHint: currentResultType)
 						.ConvertTo(currentResultType, exprBuilder, allowImplicitConversion: true);
+					if (isLambdaOrExprTree && IsPossibleLossOfTypeInformation(expr.Type, currentResultType))
+					{
+						expr = new CastExpression(exprBuilder.ConvertType(currentResultType), expr)
+							.WithRR(new ConversionResolveResult(currentResultType, expr.ResolveResult, Conversion.IdentityConversion)).WithoutILInstruction();
+					}
 					return new ReturnStatement(expr).WithILInstruction(inst);
 				}
 				else
@@ -418,6 +424,19 @@ namespace ICSharpCode.Decompiler.CSharp
 				endContainerLabels.Add(inst.TargetContainer, label);
 			}
 			return new GotoStatement(label).WithILInstruction(inst);
+		}
+
+		private bool IsPossibleLossOfTypeInformation(IType givenType, IType expectedType)
+		{
+			if (NormalizeTypeVisitor.IgnoreNullability.EquivalentTypes(givenType, expectedType))
+				return false;
+			if (expectedType is TupleType { ElementNames.IsEmpty: false })
+				return true;
+			if (expectedType == SpecialType.Dynamic)
+				return true;
+			if (givenType == SpecialType.NullType)
+				return true;
+			return false;
 		}
 
 		protected internal override TranslatedStatement VisitThrow(Throw inst)

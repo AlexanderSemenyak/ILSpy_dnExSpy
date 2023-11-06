@@ -138,9 +138,12 @@ namespace ICSharpCode.Decompiler.Disassembler
 					output.WriteLine("{");
 					break;
 				case ILStructureType.Handler:
-					switch (s.ExceptionHandler.HandlerType) {
-						case ExceptionHandlerType.Catch:
+					switch (s.ExceptionHandler.HandlerType)
+					{
 						case ExceptionHandlerType.Filter:
+							// handler block of filter block has no header
+							break;
+						case ExceptionHandlerType.Catch:
 							output.Write("catch");
 							if (s.ExceptionHandler.CatchType != null) {
 								output.Write(' ');

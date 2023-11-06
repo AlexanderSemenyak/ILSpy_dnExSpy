@@ -25,6 +25,8 @@ using dnlib.DotNet;
 using ICSharpCode.Decompiler.TypeSystem.Implementation;
 using ICSharpCode.Decompiler.Util;
 
+using CustomAttribute = dnlib.DotNet.CustomAttribute;
+
 namespace ICSharpCode.Decompiler.TypeSystem
 {
 	/// <summary>
@@ -39,7 +41,8 @@ namespace ICSharpCode.Decompiler.TypeSystem
 			ModuleDef metadata,
 			TypeSystemOptions options,
 			Nullability nullableContext,
-			bool typeChildrenOnly = false)
+			bool typeChildrenOnly = false,
+			IHasCustomAttribute additionalAttributes = null)
 		{
 			bool hasDynamicAttribute = false;
 			bool[] dynamicAttributeData = null;
@@ -53,46 +56,80 @@ namespace ICSharpCode.Decompiler.TypeSystem
 			} else {
 				nullability = Nullability.Oblivious;
 			}
-			const TypeSystemOptions relevantOptions = TypeSystemOptions.Dynamic | TypeSystemOptions.Tuple | TypeSystemOptions.NullabilityAnnotations | TypeSystemOptions.NativeIntegers;
-			if (attributes != null && (options & relevantOptions) != 0) {
-				foreach (var attr in attributes.CustomAttributes) {
-					var attrType = attr.AttributeType;
-					if ((options & TypeSystemOptions.Dynamic) != 0 && attrType.IsKnownType(KnownAttribute.Dynamic)) {
-						hasDynamicAttribute = true;
-						if (attr.ConstructorArguments.Count == 1) {
-							var arg = attr.ConstructorArguments[0];
-							if (arg.Value is IList<CAArgument> values
-								&& values.All(v => v.Value is bool)) {
-								dynamicAttributeData = values.SelectArray(v => (bool)v.Value);
-							}
-						}
-					} else if ((options & TypeSystemOptions.NativeIntegers) != 0 && attrType.IsKnownType(KnownAttribute.NativeInteger)) {
-						hasNativeIntegersAttribute = true;
-						if (attr.ConstructorArguments.Count == 1) {
-							var arg = attr.ConstructorArguments[0];
-							if (arg.Value is IList<CAArgument> values
-								&& values.All(v => v.Value is bool)) {
-								nativeIntegersAttributeData = values.SelectArray(v => (bool)v.Value);
-							}
-						}
-					}else if ((options & TypeSystemOptions.Tuple) != 0 && attrType.IsKnownType(KnownAttribute.TupleElementNames)) {
-						if (attr.ConstructorArguments.Count == 1) {
-							var arg = attr.ConstructorArguments[0];
-							if (arg.Value is IList<CAArgument> values && values.All(v => v.Value is UTF8String || v.Value == null)) {
-								tupleElementNames = values.SelectArray(v => ((UTF8String)v.Value)?.String);
-							}
-						}
-					} else if ((options & TypeSystemOptions.NullabilityAnnotations) != 0 && attrType.IsKnownType(KnownAttribute.Nullable)) { ;
-						if (attr.ConstructorArguments.Count == 1) {
-							var arg = attr.ConstructorArguments[0];
-							if (arg.Value is IList<CAArgument> values
-								&& values.All(v => v.Value is byte b && b <= 2)) {
-								nullableAttributeData = values.SelectArray(v => (Nullability)(byte)v.Value);
-							} else if (arg.Value is byte b && b <= 2) {
-								nullability = (Nullability)b;
-							}
+
+			void ProcessAttribute(CustomAttribute attr)
+			{
+				var attrType = attr.AttributeType;
+				if ((options & TypeSystemOptions.Dynamic) != 0 && attrType.IsKnownType(KnownAttribute.Dynamic))
+				{
+					hasDynamicAttribute = true;
+					if (attr.ConstructorArguments.Count == 1)
+					{
+						var arg = attr.ConstructorArguments[0];
+						if (arg.Value is IList<CAArgument> values
+							&& values.All(v => v.Value is bool))
+						{
+							dynamicAttributeData = values.SelectArray(v => (bool)v.Value);
 						}
 					}
+				}
+				else if ((options & TypeSystemOptions.NativeIntegers) != 0 && attrType.IsKnownType(KnownAttribute.NativeInteger))
+				{
+					hasNativeIntegersAttribute = true;
+					if (attr.ConstructorArguments.Count == 1)
+					{
+						var arg = attr.ConstructorArguments[0];
+						if (arg.Value is IList<CAArgument> values
+							&& values.All(v => v.Value is bool))
+						{
+							nativeIntegersAttributeData = values.SelectArray(v => (bool)v.Value);
+						}
+					}
+				}
+				else if ((options & TypeSystemOptions.Tuple) != 0 && attrType.IsKnownType(KnownAttribute.TupleElementNames))
+				{
+					if (attr.ConstructorArguments.Count == 1)
+					{
+						var arg = attr.ConstructorArguments[0];
+						if (arg.Value is IList<CAArgument> values
+							&& values.All(v => v.Value is UTF8String || v.Value is string || v.Value is null))
+						{
+							tupleElementNames = values.SelectArray(v => v.Value is UTF8String u ? u.String : v.Value as string);
+						}
+					}
+				}
+				else if ((options & TypeSystemOptions.NullabilityAnnotations) != 0 && attrType.IsKnownType(KnownAttribute.Nullable))
+				{
+					if (attr.ConstructorArguments.Count == 1)
+					{
+						var arg = attr.ConstructorArguments[0];
+						if (arg.Value is IList<CAArgument> values
+							&& values.All(v => v.Value is byte b && b <= 2))
+						{
+							nullableAttributeData = values.SelectArray(v => (Nullability)(byte)v.Value);
+						}
+						else if (arg.Value is byte b && b <= 2)
+						{
+							nullability = (Nullability)b;
+						}
+					}
+				}
+			}
+
+			const TypeSystemOptions relevantOptions = TypeSystemOptions.Dynamic | TypeSystemOptions.Tuple | TypeSystemOptions.NullabilityAnnotations | TypeSystemOptions.NativeIntegers;
+			if (attributes != null && (options & relevantOptions) != 0)
+			{
+				foreach (var attrHandle in attributes.CustomAttributes)
+				{
+					ProcessAttribute(attrHandle);
+				}
+			}
+			if (additionalAttributes != null && (options & relevantOptions) != 0)
+			{
+				// Note: additional attributes will override the values from the normal attributes.
+				foreach (var attrHandle in additionalAttributes.CustomAttributes)
+				{
+					ProcessAttribute(attrHandle);
 				}
 			}
 			if (hasDynamicAttribute || hasNativeIntegersAttribute || nullability != Nullability.Oblivious || nullableAttributeData != null

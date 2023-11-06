@@ -649,8 +649,11 @@ namespace ICSharpCode.Decompiler.TypeSystem
 				case Table.TypeRef:
 				case Table.TypeDef:
 				case Table.TypeSpec:
+					// Using ResolveDeclaringType() here because ResolveType() might return
+					// nint/nuint which are SpecialTypes without a definition.
+					return ResolveDeclaringType((dnlib.DotNet.ITypeDefOrRef)entityHandle, context).GetDefinition();
 				case Table.ExportedType:
-					return ResolveType((dnlib.DotNet.IType)entityHandle, context).GetDefinition();
+					return ResolveForwardedType((ExportedType)entityHandle).GetDefinition();
 				case Table.MemberRef:
 					var memberReferenceHandle = (MemberRef)entityHandle;
 					if (memberReferenceHandle.IsMethodRef) {

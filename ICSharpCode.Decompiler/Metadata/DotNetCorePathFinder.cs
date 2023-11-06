@@ -64,6 +64,7 @@ namespace ICSharpCode.Decompiler.Metadata
 		}
 
 		static readonly string[] LookupPaths = new string[] {
+			Environment.GetEnvironmentVariable("NUGET_PACKAGES"),
 			Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".nuget", "packages")
 		};
 
@@ -112,6 +113,10 @@ namespace ICSharpCode.Decompiler.Metadata
 
 				foreach (var path in LookupPaths)
 				{
+					if (string.IsNullOrWhiteSpace(path))
+					{
+						continue;
+					}
 					foreach (var p in packages)
 					{
 						foreach (var item in p.RuntimeComponents)

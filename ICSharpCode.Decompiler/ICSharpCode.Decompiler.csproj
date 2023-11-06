@@ -25,7 +25,7 @@
     <GenerateAssemblyInformationalVersionAttribute>False</GenerateAssemblyInformationalVersionAttribute>
 
     <EnableDefaultItems>false</EnableDefaultItems>
-    <LangVersion>10</LangVersion>
+    <LangVersion>11</LangVersion>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <SignAssembly>True</SignAssembly>
     <AssemblyOriginatorKeyFile>ICSharpCode.Decompiler.snk</AssemblyOriginatorKeyFile>
@@ -77,6 +77,7 @@
     <Compile Include="CSharp\Annotations.cs" />
     <Compile Include="CSharp\CallBuilder.cs" />
     <Compile Include="CSharp\CSharpLanguageVersion.cs" />
+    <Compile Include="CSharp\Syntax\Expressions\RecursivePatternExpression.cs" />
     <Compile Include="DecompilationProgress.cs" />
     <Compile Include="NRTAttributes.cs" />
     <Compile Include="PartialTypeInfo.cs" />
@@ -112,6 +113,8 @@
     <Compile Include="Instrumentation\DecompilerEventSource.cs" />
     <Compile Include="Metadata\ReferenceLoadInfo.cs" />
     <Compile Include="TypeSystem\ITypeDefinitionOrUnknown.cs" />
+    <Compile Include="Util\BitOperations.cs" />
+    <Compile Include="Util\Index.cs" />
     <None Include="Properties\DecompilerVersionInfo.template.cs" />
     <Compile Include="Semantics\OutVarResolveResult.cs" />
     <Compile Include="SingleFileBundle.cs" />
@@ -609,6 +612,7 @@
     <Compile Include="Util\CSharpPrimitiveCast.cs" />
     <Compile Include="Util\EmptyList.cs" />
     <Compile Include="Util\ExtensionMethods.cs" />
+    <Compile Include="Util\GraphTraversal.cs" />
     <Compile Include="Util\Interval.cs" />
     <Compile Include="Util\LazyInit.cs" />
     <Compile Include="Util\LongSet.cs" />

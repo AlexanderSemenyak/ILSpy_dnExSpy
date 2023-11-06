@@ -155,15 +155,19 @@ namespace ICSharpCode.Decompiler.TypeSystem.Implementation
 				var deocded = handle.PropertySig.RetType.DecodeSignature(module,
 					new GenericContext(DeclaringType.TypeParameters));
 				var declTypeDef = this.DeclaringTypeDefinition;
-				Nullability nullableContext;
 
+				Nullability nullableContext;
+				ParamDef retParam;
 				if (handle.GetMethod != null) {
+					retParam = handle.GetMethod.Parameters.ReturnParameter.ParamDef;
 					nullableContext = handle.GetMethod.CustomAttributes.GetNullableContext()
 									  ?? declTypeDef?.NullableContext ?? Nullability.Oblivious;
 				} else if (handle.SetMethod != null) {
+					retParam = handle.SetMethod.Parameters.ReturnParameter.ParamDef;
 					nullableContext = handle.SetMethod.CustomAttributes.GetNullableContext()
 									  ?? declTypeDef?.NullableContext ?? Nullability.Oblivious;
 				} else {
+					retParam = null;
 					nullableContext = declTypeDef?.NullableContext ?? Nullability.Oblivious;
 				}
 				// We call OptionsForEntity() for the declaring type, not the property itself,
@@ -175,7 +179,7 @@ namespace ICSharpCode.Decompiler.TypeSystem.Implementation
 				var typeOptions = module.OptionsForEntity(declTypeDef);
 
 				var ret = ApplyAttributeTypeVisitor.ApplyAttributesToType(deocded,
-					module.Compilation, handle, module.metadata, typeOptions, nullableContext);
+					module.Compilation, retParam, module.metadata, typeOptions, nullableContext, additionalAttributes: handle);
 				return LazyInit.GetOrSet(ref this.returnType, ret);
 			}
 		}
