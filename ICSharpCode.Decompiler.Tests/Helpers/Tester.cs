@@ -289,6 +289,7 @@ namespace ICSharpCode.Decompiler.Tests.Helpers
 				"System.Linq.Expressions.dll",
 				"System.Linq.Queryable.dll",
 				"System.IO.FileSystem.Watcher.dll",
+				"System.Memory.dll",
 				"System.Threading.dll",
 				"System.Threading.Thread.dll",
 				"System.Runtime.dll",

@@ -302,7 +302,7 @@ namespace ICSharpCode.Decompiler.CSharp
 			int i = 0;
 			foreach (var parameter in entity.GetChildrenByRole(Roles.Parameter))
 			{
-				if (string.IsNullOrEmpty(parameter.Name) && !parameter.Type.IsArgList())
+				if (string.IsNullOrWhiteSpace(parameter.Name) && !parameter.Type.IsArgList())
 				{
 					// needs to be consistent with logic in ILReader.CreateILVarable(ParameterDefinition)
 					parameter.NameToken.Name = "P_" + i;

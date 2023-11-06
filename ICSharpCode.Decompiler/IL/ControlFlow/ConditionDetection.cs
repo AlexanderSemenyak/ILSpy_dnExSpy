@@ -95,6 +95,7 @@ namespace ICSharpCode.Decompiler.IL.ControlFlow
 			}
 			PickBetterBlockExit(block, ifInst);
 			OrderIfBlocks(ifInst);
+			context.IndexOfFirstAlreadyTransformedInstruction = block.Instructions.Count;
 		}
 
 		/// <summary>
@@ -164,6 +165,7 @@ namespace ICSharpCode.Decompiler.IL.ControlFlow
 					block.ILSpans.AddRange(targetBlock.ILSpans);
 				block.EndILSpans.AddRange(targetBlock.EndILSpans);
 			}
+			context.IndexOfFirstAlreadyTransformedInstruction = block.Instructions.Count;
 			block.Instructions.AddRange(targetBlock.Instructions);
 			targetBlock.Remove();
 
@@ -242,7 +244,9 @@ namespace ICSharpCode.Decompiler.IL.ControlFlow
 			{
 				context.Step("Embed else-block for goto removal", ifInst);
 				Debug.Assert(IsEmpty(ifInst.FalseInst));
-				ifInst.FalseInst = ExtractBlock(block, block.Instructions.IndexOf(ifInst) + 1, block.Instructions.Count - 1);
+				Block newBlock = new Block();
+				ifInst.FalseInst = newBlock;
+				ExtractBlock(block, block.Instructions.IndexOf(ifInst) + 1, block.Instructions.Count - 1, newBlock);
 			}
 
 			// if (...) { ...; goto blockExit; } blockExit;
@@ -396,6 +400,7 @@ namespace ICSharpCode.Decompiler.IL.ControlFlow
 
 			//save a copy
 			var thenInst = ifInst.TrueInst;
+			thenInst.AddRef();
 
 			if (ifInst != block.Instructions.SecondToLastOrDefault())
 			{
@@ -403,12 +408,14 @@ namespace ICSharpCode.Decompiler.IL.ControlFlow
 				// Note that this will only extract instructions that were previously inlined from another block
 				// (via InlineExitBranch), so the instructions are already fully-transformed.
 				// So it's OK to move them into a nested block again (which hides them from the following block transforms).
-				ifInst.TrueInst = ExtractBlock(block, block.Instructions.IndexOf(ifInst) + 1, block.Instructions.Count);
+				var newBlock = new Block();
+				ifInst.TrueInst = newBlock;
+				ExtractBlock(block, block.Instructions.IndexOf(ifInst) + 1, block.Instructions.Count, newBlock);
 			}
 			else
 			{
-				block.Instructions.RemoveAt(block.Instructions.Count - 1);
 				ifInst.TrueInst = exitInst;
+				block.Instructions.RemoveAt(block.Instructions.Count - 1);
 			}
 
 			if (thenInst is Block thenBlock)
@@ -419,6 +426,7 @@ namespace ICSharpCode.Decompiler.IL.ControlFlow
 			{
 				block.Instructions.Add(thenInst);
 			}
+			thenInst.ReleaseRef();
 
 			ifInst.Condition = Comp.LogicNot(ifInst.Condition);
 			ExpressionTransforms.RunOnSingleStatement(ifInst, context);
@@ -690,9 +698,8 @@ namespace ICSharpCode.Decompiler.IL.ControlFlow
 		/// <summary>
 		/// Removes a subrange of instructions from a block and returns them in a new Block
 		/// </summary>
-		internal static Block ExtractBlock(Block block, int startIndex, int endIndex)
+		internal static void ExtractBlock(Block block, int startIndex, int endIndex, Block extractedBlock)
 		{
-			var extractedBlock = new Block();
 			for (int i = startIndex; i < endIndex; i++)
 			{
 				var inst = block.Instructions[i];
@@ -700,8 +707,6 @@ namespace ICSharpCode.Decompiler.IL.ControlFlow
 				extractedBlock.AddILRange(inst);
 			}
 			block.Instructions.RemoveRange(startIndex, endIndex - startIndex);
-
-			return extractedBlock;
 		}
 	}
 }

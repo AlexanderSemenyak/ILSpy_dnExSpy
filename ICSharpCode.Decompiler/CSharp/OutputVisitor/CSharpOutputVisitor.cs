@@ -1235,6 +1235,41 @@ namespace ICSharpCode.Decompiler.CSharp.OutputVisitor
 			EndNode(declarationExpression);
 		}
 
+		public virtual void VisitRecursivePatternExpression(RecursivePatternExpression recursivePatternExpression)
+		{
+			StartNode(recursivePatternExpression);
+
+			recursivePatternExpression.Type.AcceptVisitor(this);
+			Space();
+			BraceHelper bh;
+			if (recursivePatternExpression.IsPositional)
+			{
+				bh = BraceHelper.LeftParen(this, CodeBracesRangeFlags.Parentheses);
+			}
+			else
+			{
+				bh = BraceHelper.LeftBrace(this, CodeBracesRangeFlags.CurlyBraces);
+			}
+			Space();
+			WriteCommaSeparatedList(recursivePatternExpression.SubPatterns);
+			Space();
+			if (recursivePatternExpression.IsPositional)
+			{
+				bh.RightParen();
+			}
+			else
+			{
+				bh.RightBrace();
+			}
+			if (!recursivePatternExpression.Designation.IsNull)
+			{
+				Space();
+				recursivePatternExpression.Designation.AcceptVisitor(this);
+			}
+
+			EndNode(recursivePatternExpression);
+		}
+
 		public virtual void VisitOutVarDeclarationExpression(OutVarDeclarationExpression outVarDeclarationExpression)
 		{
 			DebugExpression(outVarDeclarationExpression);
@@ -1601,6 +1636,9 @@ namespace ICSharpCode.Decompiler.CSharp.OutputVisitor
 				int start = writer.GetLocation() ?? 0;
 				WriteKeyword(opSymbol);
 				writer.AddHighlightedKeywordReference(currentMethodRefs.AwaitReference, start, writer.GetLocation() ?? 0);
+			} else if (opType == UnaryOperatorType.PatternNot) {
+				WriteKeyword(opSymbol);
+				Space();
 			} else if (!IsPostfixOperator(opType) && opSymbol != null) {
 				WriteToken(opSymbol, BoxedTextColor.Operator);
 			}
@@ -3151,6 +3189,8 @@ namespace ICSharpCode.Decompiler.CSharp.OutputVisitor
 			{
 				operatorDeclaration.ReturnType.AcceptVisitor(this);
 			}
+			Space();
+			WritePrivateImplementationType(operatorDeclaration.PrivateImplementationType);
 			WriteKeywordIdentifier(OperatorDeclaration.OperatorKeywordRole);
 			Space();
 			if (OperatorDeclaration.IsChecked(operatorDeclaration.OperatorType))

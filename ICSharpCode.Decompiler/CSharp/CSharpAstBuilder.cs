@@ -243,10 +243,6 @@ namespace ICSharpCode.Decompiler.CSharp
 				}
 			}
 
-			currentDecompileRun.EnumValueDisplayMode = tsTypeDef.Kind == TypeKind.Enum
-				? DetectBestEnumValueDisplayMode(tsTypeDef)
-				: null;
-
 			// With C# 9 records, the relative order of fields and properties matters:
 			if (recordDecompiler?.FieldsAndProperties is null)
 			{
@@ -325,7 +321,8 @@ namespace ICSharpCode.Decompiler.CSharp
 			}
 			if (typeDecl.ClassType == ClassType.Enum)
 			{
-				switch (currentDecompileRun.EnumValueDisplayMode)
+				EnumValueDisplayMode displayMode = DetectBestEnumValueDisplayMode(tsTypeDef);
+				switch (displayMode)
 				{
 					case EnumValueDisplayMode.FirstOnly:
 						foreach (var enumMember in typeDecl.Members.OfType<EnumMemberDeclaration>().Skip(1))
@@ -344,13 +341,33 @@ namespace ICSharpCode.Decompiler.CSharp
 						}
 						break;
 					case EnumValueDisplayMode.All:
-					case EnumValueDisplayMode.AllHex:
 						// nothing needs to be changed.
+						break;
+					case EnumValueDisplayMode.AllHex:
+						foreach (var enumMember in typeDecl.Members.OfType<EnumMemberDeclaration>())
+						{
+							var constantValue = (enumMember.GetSymbol() as ICSharpCode.Decompiler.TypeSystem.IField)?.GetConstantValue();
+							if (constantValue == null || enumMember.Initializer is not PrimitiveExpression pe)
+							{
+								continue;
+							}
+							long initValue = (long)CSharpPrimitiveCast.Cast(TypeCode.Int64, constantValue, false);
+							if (initValue >= 10)
+							{
+								pe.Format = LiteralFormat.HexadecimalNumber;
+							}
+						}
 						break;
 					default:
 						throw new ArgumentOutOfRangeException();
 				}
-				currentDecompileRun.EnumValueDisplayMode = null;
+				foreach (var item in typeDecl.Members)
+				{
+					if (item is not EnumMemberDeclaration)
+					{
+						typeDecl.InsertChildBefore(item, new Comment(" error: nested types are not permitted in C#."), Roles.Comment);
+					}
+				}
 			}
 
 			AddComment(typeDecl, typeDef);
@@ -369,7 +386,7 @@ namespace ICSharpCode.Decompiler.CSharp
 			var methodDecl = tsMethod.IsAccessor ? typeSystemAstBuilder.ConvertMethod(tsMethod) : typeSystemAstBuilder.ConvertEntity(tsMethod);
 
 			int lastDot = tsMethod.Name.LastIndexOf('.');
-			if (tsMethod.IsExplicitInterfaceImplementation && lastDot >= 0)
+			if (methodDecl is not OperatorDeclaration && tsMethod.IsExplicitInterfaceImplementation && lastDot >= 0)
 			{
 				methodDecl.NameToken.Name = tsMethod.Name.Substring(lastDot + 1);
 			}
@@ -576,13 +593,7 @@ namespace ICSharpCode.Decompiler.CSharp
 				enumDec.NameToken = Identifier.Create(tsField.Name).WithAnnotation(fieldDef);
 				object constantValue = tsField.GetConstantValue();
 				if (constantValue != null) {
-					long initValue = (long)CSharpPrimitiveCast.Cast(TypeCode.Int64, constantValue, false);
 					enumDec.Initializer = typeSystemAstBuilder.ConvertConstantValue(currentTypeResolveContext.CurrentTypeDefinition.EnumUnderlyingType, constantValue);
-					if (enumDec.Initializer is PrimitiveExpression primitive
-						&& initValue >= 10 && currentDecompileRun.EnumValueDisplayMode == EnumValueDisplayMode.AllHex)
-					{
-						primitive.Format = LiteralFormat.HexadecimalNumber;
-					}
 				}
 
 				enumDec.Attributes.AddRange(tsField.GetAttributes().Select(a => new AttributeSection(typeSystemAstBuilder.ConvertAttribute(a))));

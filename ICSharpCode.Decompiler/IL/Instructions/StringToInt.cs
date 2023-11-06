@@ -22,21 +22,26 @@ using System.Collections.Generic;
 using dnSpy.Contracts.Decompiler;
 using dnSpy.Contracts.Text;
 
+using ICSharpCode.Decompiler.TypeSystem;
+
 namespace ICSharpCode.Decompiler.IL
 {
 	partial class StringToInt
 	{
 		public List<(string? Key, int Value)> Map { get; }
 
-		public StringToInt(ILInstruction argument, List<(string? Key, int Value)> map)
+		public IType ExpectedType { get; }
+
+		public StringToInt(ILInstruction argument, List<(string? Key, int Value)> map, IType expectedType)
 			: base(OpCode.StringToInt)
 		{
 			this.Argument = argument;
 			this.Map = map;
+			this.ExpectedType = expectedType;
 		}
 
-		public StringToInt(ILInstruction argument, string?[] map)
-			: this(argument, ArrayToDictionary(map))
+		public StringToInt(ILInstruction argument, string?[] map, IType expectedType)
+			: this(argument, ArrayToDictionary(map), expectedType)
 		{
 		}
 
@@ -55,6 +60,7 @@ namespace ICSharpCode.Decompiler.IL
 			WriteILRange(output, options);
 			output.Write("string.to.int", BoxedTextColor.OpCode);
 			output.Write(" ", BoxedTextColor.Text);
+			ExpectedType.WriteTo(output);
 			output.Write("(", BoxedTextColor.Text);
 			Argument.WriteTo(output, options);
 			output.Write(", { ", BoxedTextColor.Text);

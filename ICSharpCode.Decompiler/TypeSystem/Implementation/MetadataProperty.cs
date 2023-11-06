@@ -158,15 +158,19 @@ namespace ICSharpCode.Decompiler.TypeSystem.Implementation
 					return returnType;
 
 				var declTypeDef = this.DeclaringTypeDefinition;
-				Nullability nullableContext;
 
+				Nullability nullableContext;
+				ParamDef retParam;
 				if (handle.GetMethod != null) {
+					retParam = handle.GetMethod.Parameters.ReturnParameter.ParamDef;
 					nullableContext = handle.GetMethod.CustomAttributes.GetNullableContext()
 									  ?? declTypeDef?.NullableContext ?? Nullability.Oblivious;
 				} else if (handle.SetMethod != null) {
+					retParam = handle.SetMethod.Parameters.ReturnParameter.ParamDef;
 					nullableContext = handle.SetMethod.CustomAttributes.GetNullableContext()
 									  ?? declTypeDef?.NullableContext ?? Nullability.Oblivious;
 				} else {
+					retParam = null;
 					nullableContext = declTypeDef?.NullableContext ?? Nullability.Oblivious;
 				}
 				// We call OptionsForEntity() for the declaring type, not the property itself,
@@ -177,8 +181,9 @@ namespace ICSharpCode.Decompiler.TypeSystem.Implementation
 				// call in PEPropertySymbol).
 				var typeOptions = module.OptionsForEntity(declTypeDef);
 
-				var ret = module.ResolveType(handle.PropertySig.RetType, new GenericContext(DeclaringType.TypeParameters),
-					typeOptions, handle, nullableContext);
+				var decoded = handle.PropertySig.RetType.DecodeSignature(module, new GenericContext(DeclaringType.TypeParameters));
+				var ret = ApplyAttributeTypeVisitor.ApplyAttributesToType(decoded,
+					module.Compilation, retParam, typeOptions, nullableContext, additionalAttributes: handle);
 				return LazyInit.GetOrSet(ref this.returnType, ret);
 			}
 		}

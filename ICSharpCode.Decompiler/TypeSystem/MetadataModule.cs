@@ -599,7 +599,7 @@ namespace ICSharpCode.Decompiler.TypeSystem
 			if (entityHandle is PropertyDef propertyDef)
 				return GetDefinition(propertyDef);
 			if (entityHandle is ITypeDefOrRef typeDefOrRef)
-				return ResolveType(typeDefOrRef, context).GetDefinition();
+				return ResolveDeclaringType(typeDefOrRef, context).GetDefinition();
 			if (entityHandle is MemberRef memberRef) {
 				if (memberRef.IsMethodRef) {
 					// for consistency with the MethodDefinition case, never expand varargs

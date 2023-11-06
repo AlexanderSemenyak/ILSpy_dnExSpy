@@ -121,7 +121,7 @@ namespace ICSharpCode.Decompiler.IL
 		/// (even if the pattern fails to match!).
 		/// The pattern matching instruction evaluates to 1 (as I4) if the pattern matches, or 0 otherwise.
 		/// </summary>
-		public static bool IsPatternMatch(ILInstruction? inst, [NotNullWhen(true)] out ILInstruction? testedOperand)
+		public static bool IsPatternMatch(ILInstruction? inst, [NotNullWhen(true)] out ILInstruction? testedOperand, DecompilerSettings? settings)
 		{
 			switch (inst)
 			{
@@ -129,22 +129,45 @@ namespace ICSharpCode.Decompiler.IL
 					testedOperand = m.testedOperand;
 					return true;
 				case Comp comp:
-					if (comp.MatchLogicNot(out var operand))
+					if (comp.MatchLogicNot(out var operand) && IsPatternMatch(operand, out testedOperand, settings))
 					{
-						return IsPatternMatch(operand, out testedOperand);
+						return settings?.PatternCombinators ?? true;
 					}
 					else
 					{
 						testedOperand = comp.Left;
+						if (!(settings?.RelationalPatterns ?? true))
+						{
+							if (comp.Kind is not (ComparisonKind.Equality or ComparisonKind.Inequality))
+								return false;
+						}
+						if (!(settings?.PatternCombinators ?? true))
+						{
+							if (comp.Kind is ComparisonKind.Inequality)
+								return false;
+						}
 						return IsConstant(comp.Right);
 					}
+				case Call call when IsCallToOpEquality(call, KnownTypeCode.String):
+					testedOperand = call.Arguments[0];
+					return call.Arguments[1].OpCode == OpCode.LdStr;
+				case Call call when IsCallToOpEquality(call, KnownTypeCode.Decimal):
+					testedOperand = call.Arguments[0];
+					return call.Arguments[1].OpCode == OpCode.LdcDecimal;
 				default:
 					testedOperand = null;
 					return false;
 			}
 		}
 
-		private static bool IsConstant(ILInstruction inst)
+		internal static bool IsCallToOpEquality(Call call, KnownTypeCode knownType)
+		{
+			return call.Method.IsOperator && call.Method.Name == "op_Equality"
+				&& call.Method.DeclaringType.IsKnownType(knownType)
+				&& call.Arguments.Count == 2;
+		}
+
+		internal static bool IsConstant(ILInstruction inst)
 		{
 			return inst.OpCode switch {
 				OpCode.LdcDecimal => true,
@@ -153,7 +176,6 @@ namespace ICSharpCode.Decompiler.IL
 				OpCode.LdcI4 => true,
 				OpCode.LdcI8 => true,
 				OpCode.LdNull => true,
-				OpCode.LdStr => true,
 				_ => false
 			};
 		}
@@ -194,7 +216,7 @@ namespace ICSharpCode.Decompiler.IL
 			Debug.Assert(SubPatterns.Count >= NumPositionalPatterns);
 			foreach (var subPattern in SubPatterns)
 			{
-				if (!IsPatternMatch(subPattern, out ILInstruction? operand))
+				if (!IsPatternMatch(subPattern, out ILInstruction? operand, null))
 					throw new InvalidOperationException("Sub-Pattern must be a valid pattern");
 				// the first child is TestedOperand
 				int subPatternIndex = subPattern.ChildIndex - 1;
@@ -205,12 +227,12 @@ namespace ICSharpCode.Decompiler.IL
 				}
 				else if (operand.MatchLdFld(out var target, out _))
 				{
-					Debug.Assert(target.MatchLdLoc(variable));
+					Debug.Assert(target.MatchLdLocRef(variable));
 				}
 				else if (operand is CallInstruction call)
 				{
 					Debug.Assert(call.Method.AccessorKind == dnlib.DotNet.MethodSemanticsAttributes.Getter);
-					Debug.Assert(call.Arguments[0].MatchLdLoc(variable));
+					Debug.Assert(call.Arguments[0].MatchLdLocRef(variable));
 				}
 				else
 				{

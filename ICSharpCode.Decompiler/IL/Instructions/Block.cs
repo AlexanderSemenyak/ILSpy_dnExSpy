@@ -397,6 +397,7 @@ namespace ICSharpCode.Decompiler.IL
 			foreach (var transform in transforms)
 			{
 				context.CancellationToken.ThrowIfCancellationRequested();
+				Debug.Assert(context.IndexOfFirstAlreadyTransformedInstruction <= this.Instructions.Count);
 				context.StepStartGroup(transform.GetType().Name);
 				transform.Run(this, context);
 				this.CheckInvariant(ILPhase.Normal);
