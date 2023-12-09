@@ -4827,7 +4827,10 @@ namespace ICSharpCode.Decompiler.CSharp
 								continue;
 							}
 							recursivePatternExpression.SubPatterns.Add(
-								new NamedArgumentExpression { Name = member.Name, Expression = TranslatePattern(subPattern, member.ReturnType) }
+								new NamedArgumentExpression {
+										NameToken = Identifier.Create(member.Name).WithAnnotation(member.MetadataToken ?? BoxedTextColor.InstanceProperty),
+										Expression = TranslatePattern(subPattern, member.ReturnType)
+									}.WithAnnotation(member.MetadataToken)
 									.WithRR(new MemberResolveResult(null, member))
 							);
 						}
@@ -4851,7 +4854,7 @@ namespace ICSharpCode.Decompiler.CSharp
 						else
 						{
 							Debug.Assert(matchInstruction.IsVar);
-							type = new SimpleType("var");
+							type = new SimpleType("var").WithAnnotation(BoxedTextColor.Keyword);
 						}
 						return new DeclarationExpression {
 							Type = type,

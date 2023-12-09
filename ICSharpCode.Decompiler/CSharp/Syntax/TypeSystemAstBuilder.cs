@@ -742,6 +742,7 @@ namespace ICSharpCode.Decompiler.CSharp.Syntax
 		{
 			Attribute attr = new Attribute();
 			attr.Type = ConvertAttributeType(attribute.AttributeType);
+			attr.WithAnnotation(attribute.MetadataObject);
 			switch (attr.Type)
 			{
 				case SimpleType st:

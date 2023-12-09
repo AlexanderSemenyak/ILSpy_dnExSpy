@@ -64,6 +64,8 @@ namespace ICSharpCode.Decompiler.TypeSystem.Implementation
 			}
 		}
 
+		public ICustomAttribute MetadataObject => handle;
+
 		public bool HasDecodeErrors {
 			get {
 				return handle.IsRawBlob;

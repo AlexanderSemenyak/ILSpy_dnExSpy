@@ -1,15 +1,15 @@
 ﻿#nullable enable
 // Copyright (c) 2016 Daniel Grunwald
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy of this
 // software and associated documentation files (the "Software"), to deal in the Software
 // without restriction, including without limitation the rights to use, copy, modify, merge,
 // publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons
 // to whom the Software is furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all copies or
 // substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
 // INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
 // PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
@@ -35,7 +35,7 @@ namespace ICSharpCode.Decompiler.Util
 		/// </summary>
 		/// <remarks>
 		/// Invariant: the intervals in this array are non-empty, non-overlapping, non-touching, and sorted.
-		/// 
+		///
 		/// This invariant ensures every LongSet is always in a normalized representation.
 		/// </remarks>
 		public readonly ImmutableArray<LongInterval> Intervals;
@@ -358,7 +358,9 @@ namespace ICSharpCode.Decompiler.Util
 
 		public override int GetHashCode()
 		{
+#pragma warning disable CA1065
 			throw new NotImplementedException();
+#pragma warning restore CA1065
 		}
 
 		[Obsolete("Explicitly call SetEquals() instead.")]
@@ -377,6 +379,16 @@ namespace ICSharpCode.Decompiler.Util
 					return false;
 			}
 			return true;
+		}
+
+		public static bool operator ==(LongSet left, LongSet right)
+		{
+			return left.SetEquals(right);
+		}
+
+		public static bool operator !=(LongSet left, LongSet right)
+		{
+			return !(left == right);
 		}
 		#endregion
 	}

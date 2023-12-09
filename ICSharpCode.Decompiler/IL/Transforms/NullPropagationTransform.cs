@@ -271,6 +271,7 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 			if (context.CalculateILSpans)
 			{
 				replacement.ILSpans.AddRange(ifInst.ILSpans);
+				bodyInst.ILSpans.AddRange(body.EndILSpans);
 				ifInst.Condition.AddSelfAndChildrenRecursiveILSpans(replacement.ILSpans);
 				if (bodyInst != body.Instructions[0])
 					replacement.ILSpans.AddRange(body.Instructions[0].ILSpans);

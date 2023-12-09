@@ -215,14 +215,7 @@ namespace ICSharpCode.Decompiler.IL
 		{
 			if (!calculateILSpans)
 				return expr;
-			long index = 0;
-			bool done = false;
-			for (;;) {
-				var b = node.GetAllILSpans(ref index, ref done);
-				if (done)
-					break;
-				expr.ILSpans.Add(b);
-			}
+			node.AddSelfILSpans(expr.ILSpans);
 			return expr;
 		}
 

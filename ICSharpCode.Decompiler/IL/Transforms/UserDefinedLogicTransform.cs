@@ -127,16 +127,7 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 					ifInst.Condition.AddSelfAndChildrenRecursiveILSpans(replacement.ILSpans);
 
 					if (ifInst.TrueInst is Block bl)
-					{
-						long index = 0;
-						bool done = false;
-						for (;;) {
-							var b = bl.GetAllILSpans(ref index, ref done);
-							if (done)
-								break;
-							replacement.ILSpans.Add(b);
-						}
-					}
+						bl.AddSelfILSpans(replacement.ILSpans);
 
 					replacement.ILSpans.AddRange(trueInst.ILSpans);
 					replacement.ILSpans.AddRange(call.ILSpans);

@@ -99,7 +99,7 @@ namespace ICSharpCode.Decompiler.Util
 			get { throw new NotSupportedException(); }
 		}
 
-		void IDisposable.Dispose()
+		public void Dispose()
 		{
 		}
 

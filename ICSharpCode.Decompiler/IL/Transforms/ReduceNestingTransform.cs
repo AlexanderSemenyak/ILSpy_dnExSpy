@@ -462,7 +462,14 @@ namespace ICSharpCode.Decompiler.IL
 			if (!block.HasFlag(InstructionFlags.EndPointUnreachable))
 			{
 				context.Step("Duplicate block exit", fallthroughExit);
-				block.Instructions.Add(fallthroughExit.Clone());
+				ILInstruction ilInstruction = fallthroughExit.Clone();
+				if (context.CalculateILSpans)
+				{
+					ilInstruction.ILSpans.Clear();
+					ilInstruction.ILSpans.AddRange(block.EndILSpans);
+					block.EndILSpans.Clear();
+				}
+				block.Instructions.Add(ilInstruction);
 			}
 		}
 

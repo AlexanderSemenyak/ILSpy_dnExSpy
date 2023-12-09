@@ -21,6 +21,8 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 
+using dnlib.DotNet;
+
 using ICSharpCode.Decompiler.Semantics;
 using ICSharpCode.Decompiler.Util;
 
@@ -36,6 +38,8 @@ namespace ICSharpCode.Decompiler.TypeSystem.Implementation
 
 		public ImmutableArray<CustomAttributeTypedArgument<IType>> FixedArguments { get; }
 		public ImmutableArray<CustomAttributeNamedArgument<IType>> NamedArguments { get; }
+
+		public ICustomAttribute MetadataObject => null;
 
 		public DefaultAttribute(IType attributeType,
 			ImmutableArray<CustomAttributeTypedArgument<IType>> fixedArguments,

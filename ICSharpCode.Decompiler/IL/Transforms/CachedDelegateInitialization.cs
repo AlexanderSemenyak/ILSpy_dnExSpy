@@ -106,18 +106,11 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 			context.Step("CachedDelegateInitializationWithField", inst);
 			var onlyUsage = usages[0];
 			if (context.CalculateILSpans) {
-				newObj.ILSpans.AddRange(inst.ILSpans);
+				newObj!.ILSpans.AddRange(inst.ILSpans);
 				inst.Condition.AddSelfAndChildrenRecursiveILSpans(newObj.ILSpans);
 				inst.FalseInst.AddSelfAndChildrenRecursiveILSpans(newObj.ILSpans);
 
-				long index = 0;
-				bool done = false;
-				for (;;) {
-					var b = inst.TrueInst.GetAllILSpans(ref index, ref done);
-					if (done)
-						break;
-					newObj.ILSpans.Add(b);
-				}
+				inst.TrueInst.AddSelfILSpans(newObj.ILSpans);
 
 				newObj.ILSpans.AddRange(storeInst.ILSpans);
 				newObj.ILSpans.AddRange(onlyUsage.ILSpans);
@@ -169,14 +162,7 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 				inst.Condition.AddSelfAndChildrenRecursiveILSpans(storeInst.ILSpans);
 				inst.FalseInst.AddSelfAndChildrenRecursiveILSpans(storeInst.ILSpans);
 
-				long index = 0;
-				bool done = false;
-				for (;;) {
-					var b = inst.TrueInst.GetAllILSpans(ref index, ref done);
-					if (done)
-						break;
-					storeInst.ILSpans.Add(b);
-				}
+				inst.TrueInst.AddSelfILSpans(storeInst.ILSpans);
 			}
 			((Block)otherStore.Parent).Instructions.Remove(otherStore);
 			inst.ReplaceWith(storeInst);
@@ -219,14 +205,7 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 				inst.Condition.AddSelfAndChildrenRecursiveILSpans(storeBeforeIf.ILSpans);
 				inst.FalseInst.AddSelfAndChildrenRecursiveILSpans(storeBeforeIf.ILSpans);
 
-				long index = 0;
-				bool done = false;
-				for (;;) {
-					var b = inst.TrueInst.GetAllILSpans(ref index, ref done);
-					if (done)
-						break;
-					storeBeforeIf.ILSpans.Add(b);
-				}
+				inst.TrueInst.AddSelfILSpans(storeBeforeIf.ILSpans);
 
 				storeBeforeIf.ILSpans.AddRange(storeInst.ILSpans);
 				storeBeforeIf.ILSpans.AddRange(stobj.ILSpans);
@@ -272,14 +251,7 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 				inst.Condition.AddSelfAndChildrenRecursiveILSpans(storeBeforeIf.ILSpans);
 				inst.FalseInst.AddSelfAndChildrenRecursiveILSpans(storeBeforeIf.ILSpans);
 
-				long index = 0;
-				bool done = false;
-				for (;;) {
-					var b = inst.TrueInst.GetAllILSpans(ref index, ref done);
-					if (done)
-						break;
-					storeBeforeIf.ILSpans.Add(b);
-				}
+				inst.TrueInst.AddSelfILSpans(storeBeforeIf.ILSpans);
 
 				storeBeforeIf.ILSpans.AddRange(storeInst.ILSpans);
 				storeBeforeIf.ILSpans.AddRange(stobj.ILSpans);

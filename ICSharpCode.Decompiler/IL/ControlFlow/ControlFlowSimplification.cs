@@ -85,14 +85,20 @@ namespace ICSharpCode.Decompiler.IL.ControlFlow
 				{
 					// In the case where the pop instruction is the first instruction in the block, move the ILSpans to the last instruction (a branch) of the previous block.
 					var index = container.Blocks.IndexOf(block);
-					if (index > 0)
+					int lookBack = 0;
+					while (lookBack++ <= 2 && index - lookBack >= 0)
 					{
-						var previous = container.Blocks[index - 1];
-						var last = previous.Instructions[previous.Instructions.Count - 1];
+						var previous = container.Blocks[index - lookBack];
+						var last = previous.Instructions.LastOrDefault();
+						if (last is null)
+							continue;
 						var beforeLast = previous.Instructions.SecondToLastOrDefault();
-						if (beforeLast is not null && last.MatchBranch(out var targetBlock) && targetBlock == block && beforeLast.MatchIfInstruction(out _, out _))
+						if (beforeLast is null)
+							continue;
+						if (last.MatchBranch(out var targetBlock) && targetBlock == block && beforeLast.MatchIfInstruction(out _, out _))
 						{
 							beforeLast.ILSpans.AddRange(popNop.ILSpans);
+							break;
 						}
 					}
 				}
@@ -244,7 +250,8 @@ namespace ICSharpCode.Decompiler.IL.ControlFlow
 						leave2.AddILRange(branch);
 					if (context.CalculateILSpans && branch.ILSpans.Count > 0)
 					{
-						leave2.ILSpans.Clear();
+						if (targetBlock.IncomingEdgeCount != 1 || leave.IsLeavingFunction)
+							leave2.ILSpans.Clear();
 						leave2.ILSpans.AddRange(branch.ILSpans);
 					}
 					branch.ReplaceWith(leave2);

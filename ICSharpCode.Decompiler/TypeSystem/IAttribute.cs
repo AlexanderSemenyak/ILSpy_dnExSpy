@@ -20,6 +20,8 @@
 
 using System.Collections.Immutable;
 
+using dnlib.DotNet;
+
 namespace ICSharpCode.Decompiler.TypeSystem
 {
 	/// <summary>
@@ -53,6 +55,8 @@ namespace ICSharpCode.Decompiler.TypeSystem
 		/// Gets the named arguments passed to the attribute.
 		/// </summary>
 		ImmutableArray<CustomAttributeNamedArgument<IType>> NamedArguments { get; }
+
+		ICustomAttribute? MetadataObject { get; }
 	}
 
 	public struct CustomAttributeTypedArgument<TType>

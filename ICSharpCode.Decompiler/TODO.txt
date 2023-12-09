@@ -1,4 +1,4 @@
-A 'small' TODO list for features/improvements/issues that need to be resolved for this port.
+﻿A 'small' TODO list for features/improvements/issues that need to be resolved for this port.
 
 - Try to reduce 'string' object allocations by using a 'StringBuilder' instead, especially in the TypeSystem
 - Implement all the MethodBodyDebugInfoBuilder and other dnSpy debug info specific classes and annotations.
@@ -10,3 +10,4 @@ A 'small' TODO list for features/improvements/issues that need to be resolved fo
 - Some of the types in 'KnownTypeCode' are present in dnlib's CorLibTypes. We should use those instead as it is probably more efficient then searching the entire type system.
 - Make sure none of the required annotations have been removed throughout C# AST transforms.
 - Fix ITypeParameter OriginalMember, MetadataToken and MDGenericParam, these don't always work
+- Verify Async debug info

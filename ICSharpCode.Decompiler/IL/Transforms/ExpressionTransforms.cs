@@ -72,7 +72,7 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 				var switchInst = (SwitchInstruction)container.EntryPoint.Instructions[0];
 				switchInst.Value.AcceptVisitor(this);
 
-				//HandleSwitchExpression(container, switchInst);
+				HandleSwitchExpression(container, switchInst);
 			}
 			// No need to call base.VisitBlockContainer, see comment in VisitBlock.
 		}
@@ -621,6 +621,9 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 					newStloc.ILSpans.AddRange(trueInst.Instructions[0].ILSpans);
 					newStloc.ILSpans.AddRange(falseInst.Instructions[0].ILSpans);
 					newIf.ILSpans.AddRange(inst.ILSpans);
+
+					trueInst.AddSelfILSpans(newIf.ILSpans);
+					falseInst.AddSelfILSpans(newIf.ILSpans);
 				}
 				inst.ReplaceWith(newStloc);
 				context.RequestRerun();  // trigger potential inlining of the newly created StLoc
@@ -706,7 +709,8 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 			switchInst.SetResultType(resultType);
 			foreach (var section in switchInst.Sections)
 			{
-				var block = ((Branch)section.Body).TargetBlock;
+				Branch br = (Branch)section.Body;
+				var block = br.TargetBlock;
 				if (block.Instructions.Count == 1)
 				{
 					if (block.Instructions[0] is Throw t)
@@ -726,21 +730,14 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 					}
 
 					if (context.CalculateILSpans)
-					{
-						long index = 0;
-						bool done = false;
-						for (;;) {
-							var span = block.GetAllILSpans(ref index, ref done);
-							if (done)
-								break;
-							section.Body.ILSpans.Add(span);
-						}
-					}
+						block.AddSelfILSpans(section.Body.ILSpans);
 				}
 				else
 				{
 					section.Body = ((StLoc)block.Instructions[0]).Value;
 				}
+				if (context.CalculateILSpans)
+					br.AddSelfILSpans(section.Body.ILSpans);
 			}
 			if (resultVariable != null)
 			{
