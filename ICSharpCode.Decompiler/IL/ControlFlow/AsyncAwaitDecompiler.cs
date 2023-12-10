@@ -171,7 +171,7 @@ namespace ICSharpCode.Decompiler.IL.ControlFlow
 
 			if (context.CalculateILSpans)
 			{
-				catchHandlerOffset2 = (uint)catchHandlerOffset;
+				uint catchHandlerOffset2 = (uint)catchHandlerOffset;
 				var stepInfos = new AsyncStepInfo[asyncStepInfoMap.Count];
 				int w = 0;
 				foreach (var kv in asyncStepInfoMap) {
@@ -184,10 +184,9 @@ namespace ICSharpCode.Decompiler.IL.ControlFlow
 				}
 				if (stepInfos.Length != w)
 					Array.Resize(ref stepInfos, w);
-				if (function.Method.MetadataToken.MethodSig.RetType.RemovePinnedAndModifiers().GetElementType() != ElementType.Void)
+				if (function.Method?.MetadataToken?.MethodSig.GetRetType().RemovePinnedAndModifiers().GetElementType() != ElementType.Void)
 					catchHandlerOffset2 = uint.MaxValue;
-				function.AsyncMethodDebugInfo = new AsyncMethodDebugInfo(stepInfos, builderField.MetadataToken as FieldDef,
-					catchHandlerOffset2, setResultOffset);
+				function.AsyncMethodDebugInfo = new AsyncMethodDebugInfo(stepInfos, builderField.MetadataToken as FieldDef, catchHandlerOffset2, setResultOffset);
 			}
 		}
 
@@ -199,9 +198,8 @@ namespace ICSharpCode.Decompiler.IL.ControlFlow
 		}
 		readonly Dictionary<int, TempAsyncStepInfo> asyncStepInfoMap = new Dictionary<int, TempAsyncStepInfo>();
 		uint setResultOffset = uint.MaxValue;
-		uint catchHandlerOffset2 = uint.MaxValue;
 
-		protected void AddYieldOffset(IList<ILInstruction> body, int index, int count, int stateId) {
+		private void AddYieldOffset(IList<ILInstruction> body, int index, int count, int stateId) {
 			if (!context.CalculateILSpans)
 				return;
 			asyncStepInfoMap.TryGetValue(stateId, out var info);
@@ -210,7 +208,7 @@ namespace ICSharpCode.Decompiler.IL.ControlFlow
 			asyncStepInfoMap[stateId] = info;
 		}
 
-		protected void AddResumeLabel(Block resumeBlock, int stateId) {
+		private void AddResumeLabel(Block resumeBlock, int stateId) {
 			if (!context.CalculateILSpans)
 				return;
 			asyncStepInfoMap.TryGetValue(stateId, out var info);
@@ -1303,7 +1301,7 @@ namespace ICSharpCode.Decompiler.IL.ControlFlow
 				var stateToBlockMap = sra.GetBlockStateSetMapping(container);
 				if (context.CalculateILSpans) {
 					foreach (var kv in stateToBlockMap) {
-						if (kv.Key.Start == kv.Key.End)
+						if (kv.Key.Start == kv.Key.InclusiveEnd)
 							AddResumeLabel(kv.Value, (int)kv.Key.Start);
 					}
 				}
@@ -1555,6 +1553,7 @@ namespace ICSharpCode.Decompiler.IL.ControlFlow
 			{
 				return false;
 			}
+			int stfldPos = pos;
 			// stfld StateMachine.<>awaiter(ldloc this, ldloc awaiter)
 			if (!block.Instructions[pos].MatchStFld(out var target, out awaiterField, out var value))
 				return false;
@@ -1585,7 +1584,7 @@ namespace ICSharpCode.Decompiler.IL.ControlFlow
 				// also delete the assignment to cachedStateVar
 				pos--;
 			}
-			AddYieldOffset(block.Instructions, pos, block.Instructions.Count - pos, state);
+			AddYieldOffset(block.Instructions, pos, stfldPos - pos, state);
 			block.Instructions.RemoveRange(pos, block.Instructions.Count - pos);
 			// delete preceding dead stores:
 			while (pos > 0 && block.Instructions[pos - 1] is StLoc stloc2
