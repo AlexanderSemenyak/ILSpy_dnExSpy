@@ -387,7 +387,18 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 			if (!DelegateConstruction.MatchDelegateConstruction(delegateConstruction, out _, out _, out _, true))
 				return false;
 			context.Step("CachedDelegateInitializationVBWithClosure", inst);
-			inst.ReplaceWith(new StLoc(s, delegateConstruction));
+			StLoc replacement = new StLoc(s, delegateConstruction);
+			if (context.CalculateILSpans)
+			{
+				replacement.ILSpans.AddRange(inst.ILSpans);
+				inst.Condition.AddSelfAndChildrenRecursiveILSpans(replacement.ILSpans);
+				inst.TrueInst.AddSelfAndChildrenRecursiveILSpans(replacement.ILSpans);
+
+				replacement.ILSpans.AddRange(falseInst.Instructions[0].ILSpans);
+				replacement.ILSpans.AddRange(stobj.ILSpans);
+				stobj.Target.AddSelfAndChildrenRecursiveILSpans(replacement.ILSpans);
+			}
+			inst.ReplaceWith(replacement);
 			return true;
 		}
 	}

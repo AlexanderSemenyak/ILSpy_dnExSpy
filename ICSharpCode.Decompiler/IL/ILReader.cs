@@ -1747,7 +1747,7 @@ namespace ICSharpCode.Decompiler.IL
 			var signatureHandle = (dnlib.DotNet.MethodSig)currentInstruction.Operand;
 			var fpt = module.DecodeMethodSignature(signatureHandle, genericContext);
 			var functionPointer = Pop(StackType.I);
-			int firstArgument = signatureHandle.HasThis ? 1 : 0;
+			int firstArgument = signatureHandle.ImplicitThis ? 1 : 0;
 			var arguments = new ILInstruction[firstArgument + fpt.ParameterTypes.Length];
 			for (int i = fpt.ParameterTypes.Length - 1; i >= 0; i--)
 			{

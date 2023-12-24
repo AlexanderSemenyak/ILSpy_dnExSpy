@@ -75,7 +75,7 @@ namespace ICSharpCode.Decompiler.IL
 		internal override void CheckInvariant(ILPhase phase)
 		{
 			base.CheckInvariant(phase);
-			Debug.Assert(Arguments.Count == FunctionPointerType.ParameterTypes.Length + (IsInstance ? 1 : 0));
+			Debug.Assert(Arguments.Count == FunctionPointerType.ParameterTypes.Length + (IsInstance && !HasExplicitThis ? 1 : 0));
 		}
 
 		public override void WriteTo(IDecompilerOutput output, ILAstWritingOptions options)
@@ -86,7 +86,7 @@ namespace ICSharpCode.Decompiler.IL
 			FunctionPointerType.ReturnType.WriteTo(output);
 			var braceInfo = OpenBrace(output, "(");
 			functionPointer.WriteTo(output, options);
-			int firstArgument = IsInstance ? 1 : 0;
+			int firstArgument = IsInstance && !HasExplicitThis ? 1 : 0;
 			if (firstArgument == 1)
 			{
 				output.Write(",", BoxedTextColor.Punctuation);

@@ -158,6 +158,10 @@ namespace ICSharpCode.Decompiler.CSharp.Syntax
 		/// </summary>
 		public bool ShowAttributes { get; set; }
 
+		public bool UseSingleAttributeSection { get; set; }
+
+		public bool SortAttributes { get; set; }
+
 		/// <summary>
 		/// Controls whether to use fully-qualified type names or short type names.
 		/// The default value is <see langword="false" />.
@@ -797,14 +801,40 @@ namespace ICSharpCode.Decompiler.CSharp.Syntax
 
 		private IEnumerable<AttributeSection> ConvertAttributes(IEnumerable<IAttribute> attributes)
 		{
-			return attributes.Select(a => new AttributeSection(ConvertAttribute(a)));
+			IEnumerable<IAttribute> attrs = SortAttributes ? attributes.OrderBy(a => a.AttributeType.FullName) : attributes;
+			if (UseSingleAttributeSection)
+			{
+				var section = new AttributeSection();
+				section.Attributes.AddRange(attrs.Select(ConvertAttribute));
+				yield return section;
+			}
+			else
+			{
+				foreach (IAttribute a in attrs)
+					yield return new AttributeSection(ConvertAttribute(a));
+			}
 		}
 
 		private IEnumerable<AttributeSection> ConvertAttributes(IEnumerable<IAttribute> attributes, string target)
 		{
-			return attributes.Select(a => new AttributeSection(ConvertAttribute(a)) {
-				AttributeTarget = target
-			});
+			IEnumerable<IAttribute> attrs = SortAttributes ? attributes.OrderBy(a => a.AttributeType.FullName) : attributes;
+			if (UseSingleAttributeSection)
+			{
+				var section = new AttributeSection {
+					AttributeTarget = target
+				};
+				section.Attributes.AddRange(attrs.Select(ConvertAttribute));
+				yield return section;
+			}
+			else
+			{
+				foreach (IAttribute a in attrs)
+				{
+					yield return new AttributeSection(ConvertAttribute(a)) {
+						AttributeTarget = target
+					};
+				}
+			}
 		}
 		#endregion
 

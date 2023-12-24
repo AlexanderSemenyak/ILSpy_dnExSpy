@@ -160,7 +160,13 @@ namespace ICSharpCode.Decompiler.IL.ControlFlow
 			{
 				exitInst.AddSelfAndChildrenRecursiveILSpans(targetBlock.ILSpans);
 				if (block.Instructions.Count > 0)
-					block.Instructions[block.Instructions.Count - 1].EndILSpans.AddRange(targetBlock.ILSpans);
+				{
+					ILInstruction prev = block.Instructions[block.Instructions.Count - 1];
+					if (prev is IfInstruction ifInstruction && ifInstruction.FalseInst.MatchNop())
+						ifInstruction.TrueInst.EndILSpans.AddRange(targetBlock.ILSpans);
+					else
+						prev.EndILSpans.AddRange(targetBlock.ILSpans);
+				}
 				else
 					block.ILSpans.AddRange(targetBlock.ILSpans);
 				block.EndILSpans.AddRange(targetBlock.EndILSpans);
@@ -247,6 +253,11 @@ namespace ICSharpCode.Decompiler.IL.ControlFlow
 				Block newBlock = new Block();
 				ifInst.FalseInst = newBlock;
 				ExtractBlock(block, block.Instructions.IndexOf(ifInst) + 1, block.Instructions.Count - 1, newBlock);
+				if (context.CalculateILSpans && ifInst.TrueInst is Block)
+				{
+					ifInst.FalseInst.EndILSpans.AddRange(commonExit.ILSpans);
+					commonExit.ILSpans.Clear();
+				}
 			}
 
 			// if (...) { ...; goto blockExit; } blockExit;

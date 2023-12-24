@@ -681,7 +681,7 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 
 			if (TextWriterTokenWriter.ContainsNonPrintableIdentifierChar(name))
 			{
-				return null;
+				return "obj";
 			}
 
 			if (name.Length == 0)

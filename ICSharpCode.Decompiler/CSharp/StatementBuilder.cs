@@ -503,12 +503,14 @@ namespace ICSharpCode.Decompiler.CSharp
 				if (v != null)
 				{
 					catchClause.AddAnnotation(new ILVariableResolveResult(v, v.Type));
-					if (v.StoreCount > 1 || v.LoadCount > 0 || v.AddressCount > 0)
+					bool isObject = v.Type.IsKnownType(KnownTypeCode.Object);
+					bool alwaysCreateVariable = decompileRun.Settings.AlwaysGenerateExceptionVariableForCatchBlocksUnlessTypeIsObject && !isObject;
+					if (alwaysCreateVariable || v.StoreCount > 1 || v.LoadCount > 0 || v.AddressCount > 0)
 					{
 						catchClause.VariableNameToken = Identifier.Create(v.Name).WithAnnotation(exprBuilder.GetParameterColor(v));
 						catchClause.Type = exprBuilder.ConvertType(v.Type);
 					}
-					else if (!v.Type.IsKnownType(KnownTypeCode.Object))
+					else if (!isObject)
 					{
 						catchClause.Type = exprBuilder.ConvertType(v.Type);
 					}

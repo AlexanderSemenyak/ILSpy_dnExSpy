@@ -35,6 +35,11 @@ namespace ICSharpCode.Decompiler.IL
 			output.Write(originalOpCodeNames[(int)opCode], BoxedTextColor.OpCode);
 		}
 
+		public static string GetName(this OpCode opCode)
+		{
+			return originalOpCodeNames[(int)opCode];
+		}
+
 		public static void Write(this IDecompilerOutput output, StackType stackType, object color)
 		{
 			output.Write(stackType.ToString().ToLowerInvariant(), color);

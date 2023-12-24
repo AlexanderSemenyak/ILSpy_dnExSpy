@@ -45,12 +45,6 @@ namespace ICSharpCode.Decompiler
 			this.UsingNamespaces.AddRange(other.UsingNamespaces);
 		}
 
-		internal DecompilerContext CloneDontUse()
-		{
-			DecompilerContext decompilerContext = (DecompilerContext)base.MemberwiseClone();
-			return decompilerContext;
-		}
-
 		internal DecompilerContext Clone()
 		{
 			return new DecompilerContext(this);

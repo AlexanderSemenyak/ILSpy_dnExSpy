@@ -87,7 +87,7 @@ namespace ICSharpCode.Decompiler.CSharp
 			typeSystem = new DecompilerTypeSystem(new PEFile(context.CurrentModule), context.Settings);
 			typeSystemAstBuilder = new TypeSystemAstBuilder {
 				ShowAttributes = true,
-				AlwaysUseShortTypeNames = true,
+				AlwaysUseShortTypeNames = !context.Settings.FullyQualifyAllTypes,
 				AddResolveResultAnnotations = true,
 				UseNullableSpecifierForValueTypes = context.Settings.LiftNullables,
 				SupportInitAccessors = context.Settings.InitAccessors,
@@ -98,6 +98,8 @@ namespace ICSharpCode.Decompiler.CSharp
 				MemberAddPrivateModifier = context.Settings.MemberAddPrivateModifier,
 				SupportUnsignedRightShift = context.Settings.UnsignedRightShift,
 				SupportOperatorChecked = context.Settings.CheckedOperators,
+				UseSingleAttributeSection = !context.Settings.OneCustomAttributePerLine,
+				SortAttributes = context.Settings.SortCustomAttributes,
 			};
 			currentTypeResolveContext =
 				new SimpleTypeResolveContext(typeSystem.MainModule).WithCurrentTypeDefinition(
@@ -596,7 +598,17 @@ namespace ICSharpCode.Decompiler.CSharp
 					enumDec.Initializer = typeSystemAstBuilder.ConvertConstantValue(currentTypeResolveContext.CurrentTypeDefinition.EnumUnderlyingType, constantValue);
 				}
 
-				enumDec.Attributes.AddRange(tsField.GetAttributes().Select(a => new AttributeSection(typeSystemAstBuilder.ConvertAttribute(a))));
+				if (context.Settings.OneCustomAttributePerLine)
+				{
+					enumDec.Attributes.AddRange(tsField.GetAttributes().Select(a => new AttributeSection(typeSystemAstBuilder.ConvertAttribute(a))));
+				}
+				else
+				{
+					var section = new AttributeSection();
+					section.Attributes.AddRange(tsField.GetAttributes().Select(a => typeSystemAstBuilder.ConvertAttribute(a)));
+					enumDec.Attributes.Add(section);
+				}
+
 				enumDec.AddAnnotation(new MemberResolveResult(null, tsField));
 				AddComment(enumDec, fieldDef);
 				return enumDec;

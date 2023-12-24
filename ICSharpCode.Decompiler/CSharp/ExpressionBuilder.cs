@@ -101,11 +101,13 @@ namespace ICSharpCode.Decompiler.CSharp
 			this.compilation = decompilationContext.Compilation;
 			this.resolver = new CSharpResolver(new CSharpTypeResolveContext(compilation.MainModule, null, decompilationContext.CurrentTypeDefinition, decompilationContext.CurrentMember));
 			this.astBuilder = new TypeSystemAstBuilder(resolver);
-			this.astBuilder.AlwaysUseShortTypeNames = true;
+			this.astBuilder.AlwaysUseShortTypeNames = !settings.FullyQualifyAllTypes;
 			this.astBuilder.AddResolveResultAnnotations = true;
 			this.astBuilder.ShowAttributes = true;
 			this.astBuilder.UseNullableSpecifierForValueTypes = settings.LiftNullables;
 			this.astBuilder.AlwaysUseGlobal = settings.AlwaysUseGlobal;
+			this.astBuilder.UseSingleAttributeSection = !settings.OneCustomAttributePerLine;
+			this.astBuilder.SortAttributes = settings.SortCustomAttributes;
 			this.typeInference = new TypeInference(compilation) { Algorithm = TypeInferenceAlgorithm.Improved };
 		}
 
@@ -4109,7 +4111,7 @@ namespace ICSharpCode.Decompiler.CSharp
 			}
 
 			var defaultSES = new SwitchExpressionSection();
-			defaultSES.Pattern = new IdentifierExpression("_");
+			defaultSES.Pattern = IdentifierExpression.Create("_", BoxedTextColor.Local);
 			defaultSES.Body = TranslateSectionBody(defaultSection);
 			switchExpr.SwitchSections.Add(defaultSES);
 
@@ -4600,7 +4602,7 @@ namespace ICSharpCode.Decompiler.CSharp
 			if (!inst.Method.IsStatic)
 			{
 				// C# 9 function pointers don't support instance methods
-				return new InvocationExpression(new IdentifierExpression("__ldftn"), delegateRef)
+				return new InvocationExpression(IdentifierExpression.Create("__ldftn", BoxedTextColor.OpCode), delegateRef)
 					.WithRR(new ResolveResult(new PointerType(compilation.FindType(KnownTypeCode.Void))))
 					.WithILInstruction(inst);
 			}
@@ -4628,7 +4630,7 @@ namespace ICSharpCode.Decompiler.CSharp
 		{
 			// C# 9 function pointers don't support instance methods
 			ExpressionWithResolveResult delegateRef = new CallBuilder(this, typeSystem, settings, stringBuilder).BuildMethodReference(inst.Method, isVirtual: true);
-			return new InvocationExpression(new IdentifierExpression("__ldvirtftn"), delegateRef)
+			return new InvocationExpression(IdentifierExpression.Create("__ldvirtftn", BoxedTextColor.OpCode), delegateRef)
 				.WithRR(new ResolveResult(new PointerType(compilation.FindType(KnownTypeCode.Void))))
 				.WithILInstruction(inst);
 		}
@@ -4637,7 +4639,8 @@ namespace ICSharpCode.Decompiler.CSharp
 		{
 			if (inst.IsInstance)
 			{
-				return ErrorExpression("calli with instance method signature not supportd");
+				return Default(inst, context);
+				// return ErrorExpression("calli with instance method signature not supported");
 			}
 
 			var functionPointer = Translate(inst.FunctionPointer, typeHint: inst.FunctionPointerType);
@@ -4713,7 +4716,7 @@ namespace ICSharpCode.Decompiler.CSharp
 							assignmentPos++;
 						}
 						else
-							expr.Elements.Add(new IdentifierExpression("_"));
+							expr.Elements.Add(IdentifierExpression.Create("_", BoxedTextColor.Local));
 					}
 					else
 					{
@@ -4945,7 +4948,7 @@ namespace ICSharpCode.Decompiler.CSharp
 			var arguments = new List<Expression>();
 			foreach (ILInstruction ilInstruction in inst.Children)
 				arguments.Add(Translate(ilInstruction));
-			return new InvocationExpression(IdentifierExpression.Create(inst.OpCode.ToString(), BoxedTextColor.OpCode), arguments)
+			return new InvocationExpression(IdentifierExpression.Create(inst.OpCode.GetName(), BoxedTextColor.OpCode), arguments)
 				   .WithILInstruction(inst).WithRR(ErrorResolveResult.UnknownError);
 		}
 

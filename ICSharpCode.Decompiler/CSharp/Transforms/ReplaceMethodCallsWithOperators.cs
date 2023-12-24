@@ -103,34 +103,36 @@ namespace ICSharpCode.Decompiler.CSharp.Transforms
 						}
 					}
 					break;
-				/*
-			case "System.Reflection.FieldInfo.GetFieldFromHandle":
-				// TODO : This is dead code because LdTokenAnnotation is not added anywhere:
-				// TODO: Reimplement as the dnSpy version of the decompiler does emit LdTokenAnnotation annotation
-				if (arguments.Length == 1) {
-					MemberReferenceExpression mre = arguments[0] as MemberReferenceExpression;
-					if (mre != null && mre.MemberName == "FieldHandle" && mre.Target.Annotation<LdTokenAnnotation>() != null) {
-						invocationExpression.ReplaceWith(mre.Target);
-						return;
+				case "System.Reflection.FieldInfo.GetFieldFromHandle":
+					if (arguments.Length == 1)
+					{
+						if (arguments[0] is MemberReferenceExpression mre && mre.MemberName == "FieldHandle" && mre.Target.Annotation<LdTokenAnnotation>() != null)
+						{
+							mre.Target.CopyAnnotationsFrom(invocationExpression);
+							invocationExpression.ReplaceWith(mre.Target);
+							return;
+						}
 					}
-				} else if (arguments.Length == 2) {
-					MemberReferenceExpression mre1 = arguments[0] as MemberReferenceExpression;
-					MemberReferenceExpression mre2 = arguments[1] as MemberReferenceExpression;
-					if (mre1 != null && mre1.MemberName == "FieldHandle" && mre1.Target.Annotation<LdTokenAnnotation>() != null) {
-						if (mre2 != null && mre2.MemberName == "TypeHandle" && mre2.Target is TypeOfExpression) {
-							Expression oldArg = ((InvocationExpression)mre1.Target).Arguments.Single();
-							FieldReference field = oldArg.Annotation<FieldReference>();
-							if (field != null) {
-								AstType declaringType = ((TypeOfExpression)mre2.Target).Type.Detach();
-								oldArg.ReplaceWith(new MemberReferenceExpression(new TypeReferenceExpression(declaringType), field.Name).CopyAnnotationsFrom(oldArg));
-								invocationExpression.ReplaceWith(mre1.Target);
-								return;
+					else if (arguments.Length == 2)
+					{
+						if (arguments[0] is MemberReferenceExpression mre1 && mre1.MemberName == "FieldHandle" && mre1.Target.Annotation<LdTokenAnnotation>() != null)
+						{
+							if (arguments[1] is MemberReferenceExpression mre2 && mre2.MemberName == "TypeHandle" && mre2.Target is TypeOfExpression typeOfExpr)
+							{
+								Expression oldArg = ((InvocationExpression)mre1.Target).Arguments.Single();
+								dnlib.DotNet.IField field = oldArg.Annotation<dnlib.DotNet.IField>();
+								if (field != null)
+								{
+									AstType declaringType = typeOfExpr.Type.Detach();
+									oldArg.ReplaceWith(new MemberReferenceExpression(new TypeReferenceExpression(declaringType), field.Name).CopyAnnotationsFrom(oldArg));
+									mre1.Target.CopyAnnotationsFrom(invocationExpression);
+									invocationExpression.ReplaceWith(mre1.Target);
+									return;
+								}
 							}
 						}
 					}
-				}
-				break;
-				*/
+					break;
 				case "System.Activator.CreateInstance":
 					if (arguments.Length == 0 && method.TypeArguments.Count == 1 && IsInstantiableTypeParameter(method.TypeArguments[0]))
 					{
@@ -479,29 +481,32 @@ namespace ICSharpCode.Decompiler.CSharp.Transforms
 			}
 		}
 
-		static readonly Expression getMethodOrConstructorFromHandlePattern =
-			new CastExpression(new Choice {
-					 new TypePattern(typeof(MethodInfo)),
-					 new TypePattern(typeof(ConstructorInfo))
-				 }, new InvocationExpression(new MemberReferenceExpression(new TypeReferenceExpression(new TypePattern(typeof(MethodBase)).ToType()), "GetMethodFromHandle"),
-				new NamedNode("ldtokenNode", new MemberReferenceExpression(new LdTokenPattern("method").ToExpression(), "MethodHandle")),
-				new OptionalNode(new MemberReferenceExpression(new TypeOfExpression(new AnyNode("declaringType")), "TypeHandle"))
-			));
+		private static readonly Expression getMethodOrConstructorFromHandlePattern =
+			new CastExpression(
+				new Choice {
+					new TypePattern(typeof(MethodInfo)),
+					new TypePattern(typeof(ConstructorInfo))
+				},
+				new InvocationExpression(
+					new MemberReferenceExpression(new TypeReferenceExpression(new TypePattern(typeof(MethodBase)).ToType()), "GetMethodFromHandle"),
+					new MemberReferenceExpression(new NamedNode("ldtokenNode", new LdTokenPattern("method")).ToExpression(), "MethodHandle"),
+					new OptionalNode(new MemberReferenceExpression(new TypeOfExpression(new AnyNode("declaringType")), "TypeHandle"))
+				));
 
 		public override void VisitCastExpression(CastExpression castExpression)
 		{
 			base.VisitCastExpression(castExpression);
 			// Handle methodof
-			// TODO: this does not seem to work properly.
 			Match m = getMethodOrConstructorFromHandlePattern.Match(castExpression);
 			if (m.Success)
 			{
-				IMethod method = m.Get<AstNode>("method").Single().GetSymbol() as IMethod;
+				AstNode methodNode = m.Get<AstNode>("method").Single();
+				IMethod method = methodNode.GetSymbol() as IMethod;
 				if (m.Has("declaringType") && method != null)
 				{
 					Expression newNode = new MemberReferenceExpression(new TypeReferenceExpression(m.Get<AstType>("declaringType").Single().Detach()), method.Name);
 					newNode = new InvocationExpression(newNode, method.Parameters.Select(p => new TypeReferenceExpression(context.TypeSystemAstBuilder.ConvertType(p.Type))));
-					m.Get<AstNode>("method").Single().ReplaceWith(newNode);
+					methodNode.ReplaceWith(newNode);
 				}
 				castExpression.ReplaceWith(m.Get<AstNode>("ldtokenNode").Single().CopyAnnotationsFrom(castExpression));
 			}

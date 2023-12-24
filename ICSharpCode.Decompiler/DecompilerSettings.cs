@@ -2251,6 +2251,48 @@ namespace ICSharpCode.Decompiler
 		}
 		bool insertParenthesesForReadability = true;
 
+		[Category("DecompilerSettings.Other")]
+		[Description("DecompilerSettings.FullyQualifyAmbiguousTypeNames")]
+		public bool FullyQualifyAmbiguousTypeNames {
+			get { return fullyQualifyAmbiguousTypeNames; }
+			set {
+				if (fullyQualifyAmbiguousTypeNames != value) {
+					fullyQualifyAmbiguousTypeNames = value;
+					OnPropertyChanged();
+				}
+			}
+		}
+		bool fullyQualifyAmbiguousTypeNames = true;
+
+		[Category("DecompilerSettings.Other")]
+		[Description("DecompilerSettings.FullyQualifyAllTypes")]
+		public bool FullyQualifyAllTypes {
+			get { return fullyQualifyAllTypes; }
+			set {
+				if (fullyQualifyAllTypes != value) {
+					fullyQualifyAllTypes = value;
+					OnPropertyChanged();
+				}
+			}
+		}
+		bool fullyQualifyAllTypes = false;
+
+		/// <summary>
+		/// Gets/Sets whether to always generate exception variables in catch blocks
+		/// </summary>
+		[Category("DecompilerSettings.Other")]
+		[Description("DecompilerSettings.AlwaysGenerateExceptionVariableForCatchBlocksUnlessTypeIsObject")]
+		public bool AlwaysGenerateExceptionVariableForCatchBlocksUnlessTypeIsObject {
+			get { return alwaysGenerateExceptionVariableForCatchBlocksUnlessTypeIsObject; }
+			set {
+				if (alwaysGenerateExceptionVariableForCatchBlocksUnlessTypeIsObject != value) {
+					alwaysGenerateExceptionVariableForCatchBlocksUnlessTypeIsObject = value;
+					OnPropertyChanged();
+				}
+			}
+		}
+		bool alwaysGenerateExceptionVariableForCatchBlocksUnlessTypeIsObject = false;
+
 		CSharpFormattingOptions csharpFormattingOptions;
 
 		[Browsable(false)]
@@ -2405,6 +2447,9 @@ namespace ICSharpCode.Decompiler
 			if (HexadecimalNumbers != other.HexadecimalNumbers) return false;
 			if (SortSwitchCasesByILOffset != other.SortSwitchCasesByILOffset) return false;
 			if (InsertParenthesesForReadability != other.InsertParenthesesForReadability) return false;
+			if (FullyQualifyAmbiguousTypeNames != other.FullyQualifyAmbiguousTypeNames) return false;
+			if (FullyQualifyAllTypes != other.FullyQualifyAllTypes) return false;
+			if (AlwaysGenerateExceptionVariableForCatchBlocksUnlessTypeIsObject != other.AlwaysGenerateExceptionVariableForCatchBlocksUnlessTypeIsObject) return false;
 
 			//TODO: CSharpFormattingOptions. This isn't currently used but it has a ton of properties
 
@@ -2530,6 +2575,9 @@ namespace ICSharpCode.Decompiler
 				hashCode = (hashCode * 397) ^ hexadecimalNumbers.GetHashCode();
 				hashCode = (hashCode * 397) ^ sortSwitchCasesByILOffset.GetHashCode();
 				hashCode = (hashCode * 397) ^ insertParenthesesForReadability.GetHashCode();
+				hashCode = (hashCode * 397) ^ fullyQualifyAmbiguousTypeNames.GetHashCode();
+				hashCode = (hashCode * 397) ^ fullyQualifyAllTypes.GetHashCode();
+				hashCode = (hashCode * 397) ^ alwaysGenerateExceptionVariableForCatchBlocksUnlessTypeIsObject.GetHashCode();
 				//TODO: CSharpFormattingOptions
 				// ReSharper enable NonReadonlyMemberInGetHashCode
 				return hashCode;
@@ -2654,6 +2702,9 @@ namespace ICSharpCode.Decompiler
 			other.HexadecimalNumbers = this.HexadecimalNumbers;
 			other.SortSwitchCasesByILOffset = this.SortSwitchCasesByILOffset;
 			other.InsertParenthesesForReadability = this.InsertParenthesesForReadability;
+			other.FullyQualifyAmbiguousTypeNames = this.FullyQualifyAmbiguousTypeNames;
+			other.FullyQualifyAllTypes = this.FullyQualifyAllTypes;
+			other.AlwaysGenerateExceptionVariableForCatchBlocksUnlessTypeIsObject = this.AlwaysGenerateExceptionVariableForCatchBlocksUnlessTypeIsObject;
 			//TODO: CSharpFormattingOptions
 			return other;
 		}

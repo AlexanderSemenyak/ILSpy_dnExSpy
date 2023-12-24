@@ -670,7 +670,7 @@ namespace ICSharpCode.Decompiler.TypeSystem
 		public IEnumerable<IAttribute> GetModuleAttributes()
 		{
 			var b = new AttributeListBuilder(this);
-			b.Add(metadata.CustomAttributes, SymbolKind.Module);
+			b.Add(metadata.GetCustomAttributes(), SymbolKind.Module);
 			if (metadata.Assembly == null) {
 				AddTypeForwarderAttributes(ref b);
 			}

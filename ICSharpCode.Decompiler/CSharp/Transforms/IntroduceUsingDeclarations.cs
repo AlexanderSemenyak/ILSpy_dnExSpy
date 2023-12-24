@@ -94,6 +94,9 @@ namespace ICSharpCode.Decompiler.CSharp.Transforms
 				}
 			}
 
+			if (!context.Settings.FullyQualifyAmbiguousTypeNames)
+				return;
+
 			// verify that the SimpleTypes refer to the correct type (no ambiguities)
 			rootNode.AcceptVisitor(new FullyQualifyAmbiguousTypeNamesVisitor(context, usingScope));
 		}
