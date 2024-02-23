@@ -28,19 +28,17 @@ namespace ICSharpCode.Decompiler.TypeSystem.Implementation
 		readonly MetadataModule module;
 		private readonly NamespaceDefinition ns;
 		public INamespace ParentNamespace { get; }
-		public string FullName { get; }
-		public string Name { get; }
 
-		public MetadataNamespace(MetadataModule module, INamespace parent, string fullName, NamespaceDefinition ns)
+		public MetadataNamespace(MetadataModule module, INamespace parent, NamespaceDefinition ns)
 		{
 			Debug.Assert(module != null);
-			Debug.Assert(fullName != null);
 			this.module = module;
 			this.ns = ns;
 			this.ParentNamespace = parent;
-			this.FullName = fullName;
-			this.Name = ns.Name;
 		}
+
+		public string FullName => ns.FullName;
+		public string Name => ns.Name;
 
 		string INamespace.ExternAlias => string.Empty;
 
@@ -49,15 +47,12 @@ namespace ICSharpCode.Decompiler.TypeSystem.Implementation
 		public IEnumerable<INamespace> ChildNamespaces {
 			get {
 				var children = LazyInit.VolatileRead(ref childNamespaces);
-				if (children != null) {
+				if (children != null)
 					return children;
-				}
 				var nsDefs = ns.Children;
 				children = new INamespace[nsDefs.Count];
-				for (int i = 0; i < children.Length; i++) {
-					var nsHandle = nsDefs[i];
-					children[i] = new MetadataNamespace(module, this, nsHandle.FullName, nsHandle);
-				}
+				for (int i = 0; i < children.Length; i++)
+					children[i] = new MetadataNamespace(module, this, nsDefs[i]);
 				return LazyInit.GetOrSet(ref childNamespaces, children);
 			}
 		}

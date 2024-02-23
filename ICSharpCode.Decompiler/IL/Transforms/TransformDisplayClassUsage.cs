@@ -615,7 +615,6 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 		{
 			if (!closureType.Name.Contains("AnonStorey"))
 				return false;
-			var decompilationContext = new SimpleTypeResolveContext(context.Function.Method);
 			return closureType.Fields.Any(f => IsPotentialClosure(decompilationContext.CurrentTypeDefinition, f.ReturnType.GetDefinition()));
 		}
 

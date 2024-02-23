@@ -36,7 +36,7 @@ using ICSharpCode.Decompiler.Util;
 
 namespace ICSharpCode.Decompiler.CSharp
 {
-	struct CallBuilder
+	readonly struct CallBuilder
 	{
 		struct ExpectedTargetDetails
 		{
@@ -567,7 +567,7 @@ namespace ICSharpCode.Decompiler.CSharp
 				throw new ArgumentNullException(nameof(method));
 			ExpectedTargetDetails expectedTargetDetails = new ExpectedTargetDetails { CallOpCode = callOpCode };
 
-			var callArguments = new List<ILInstruction>();
+			var callArguments = new List<ILInstruction>(indices.Count + 2);
 			callArguments.Add(new LdNull());
 			callArguments.AddRange(indices);
 			callArguments.Add(value ?? new Nop());

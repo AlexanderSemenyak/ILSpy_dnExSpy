@@ -191,12 +191,12 @@ namespace ICSharpCode.Decompiler.TypeSystem
 			maindnlibMod = mainModule.Module;
 			options = typeSystemOptions;
 
-			Init(mainModule.WithOptions(typeSystemOptions));
-
 			// if (!(identifier == TargetFrameworkIdentifier.NET && version >= new Version(7, 0)))
 			// {
 			// 	typeSystemOptions &= ~TypeSystemOptions.NativeIntegersWithoutAttribute;
 			// }
+
+			Init(mainModule.WithOptions(typeSystemOptions));
 
 			var corLibAsm = maindnlibMod.Context.AssemblyResolver.Resolve(maindnlibMod.CorLibTypes.AssemblyRef, maindnlibMod);
 			if (corLibAsm != null)
@@ -261,12 +261,15 @@ namespace ICSharpCode.Decompiler.TypeSystem
 		{
 			// SimpleCompilation does not support extern aliases; but derived classes might.
 			// CreateRootNamespace() is virtual so that derived classes can change the global namespace.
-			INamespace[] namespaces = new INamespace[referencedModules.Count + 1];
-			namespaces[0] = mainModule.RootNamespace;
-			for (int i = 0; i < referencedModules.Count; i++) {
-				namespaces[i + 1] = referencedModules[i].RootNamespace;
+			lock (dnlibModules)
+			{
+				INamespace[] namespaces = new INamespace[referencedModules.Count + 1];
+				namespaces[0] = mainModule.RootNamespace;
+				for (int i = 0; i < referencedModules.Count; i++) {
+					namespaces[i + 1] = referencedModules[i].RootNamespace;
+				}
+				return new MergedNamespace(this, namespaces);
 			}
-			return new MergedNamespace(this, namespaces);
 		}
 
 		public CacheManager CacheManager { get; } = new CacheManager();

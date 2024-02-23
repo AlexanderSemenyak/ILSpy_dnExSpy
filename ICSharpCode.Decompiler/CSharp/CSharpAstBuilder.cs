@@ -12,13 +12,13 @@ using dnSpy.Contracts.Decompiler;
 
 using ICSharpCode.Decompiler.CSharp.OutputVisitor;
 using ICSharpCode.Decompiler.CSharp.Syntax;
-using ICSharpCode.Decompiler.CSharp.Syntax.PatternMatching;
 using ICSharpCode.Decompiler.CSharp.Transforms;
 using ICSharpCode.Decompiler.IL;
 using ICSharpCode.Decompiler.IL.Transforms;
 using ICSharpCode.Decompiler.Metadata;
 using ICSharpCode.Decompiler.Semantics;
 using ICSharpCode.Decompiler.TypeSystem;
+using ICSharpCode.Decompiler.TypeSystem.Implementation;
 using ICSharpCode.Decompiler.Util;
 
 namespace ICSharpCode.Decompiler.CSharp
@@ -40,10 +40,10 @@ namespace ICSharpCode.Decompiler.CSharp
 		private readonly List<Task<AsyncMethodBodyResult>> methodBodyTasks = new List<Task<AsyncMethodBodyResult>>();
 		private readonly List<AsyncMethodBodyDecompilationState> asyncMethodBodyDecompilationStates = new List<AsyncMethodBodyDecompilationState>();
 		private readonly List<Comment> comments = new List<Comment>();
+		private readonly TypeSystemAstBuilder typeSystemAstBuilder;
 		private IDecompilerTypeSystem typeSystem;
-		private TypeSystemAstBuilder typeSystemAstBuilder;
 		private ITypeResolveContext currentTypeResolveContext;
-		private DecompileRun currentDecompileRun;
+		private readonly DecompileRun currentDecompileRun;
 
 		public DecompilerContext Context => this.context;
 
@@ -62,49 +62,48 @@ namespace ICSharpCode.Decompiler.CSharp
 			this.transformationsHaveRun = false;
 			this.GetDecompiledBodyKind = null;
 			this.typeSystem = null;
-			this.typeSystemAstBuilder = null;
+			this.typeSystemAstBuilder = new TypeSystemAstBuilder {
+				ShowAttributes = true,
+				AddResolveResultAnnotations = true
+			};
 			this.currentTypeResolveContext = null;
-			this.currentDecompileRun = null;
+			this.currentDecompileRun = new DecompileRun(context.Settings) { CancellationToken = context.CancellationToken, Context = context };
 		}
 
 		public void Reset()
 		{
 			this.typeSystem = null;
-			this.typeSystemAstBuilder = null;
 			this.currentTypeResolveContext = null;
-			this.currentDecompileRun = null;
 			this.GetDecompiledBodyKind = null;
 			this.syntaxTree = new SyntaxTree();
 			this.transformationsHaveRun = false;
 			this.astNamespaces.Clear();
 			this.stringBuilder.Clear();
 			this.context.Reset();
+			this.currentDecompileRun.Reset();
 			this.methodBodyTasks.Clear();
 		}
 
 		public void InitializeTypeSystem()
 		{
 			typeSystem = new DecompilerTypeSystem(new PEFile(context.CurrentModule), context.Settings);
-			typeSystemAstBuilder = new TypeSystemAstBuilder {
-				ShowAttributes = true,
-				AlwaysUseShortTypeNames = !context.Settings.FullyQualifyAllTypes,
-				AddResolveResultAnnotations = true,
-				UseNullableSpecifierForValueTypes = context.Settings.LiftNullables,
-				SupportInitAccessors = context.Settings.InitAccessors,
-				SupportRecordClasses = context.Settings.RecordClasses,
-				SupportRecordStructs = context.Settings.RecordStructs,
-				AlwaysUseGlobal = context.Settings.AlwaysUseGlobal,
-				TypeAddInternalModifier = context.Settings.TypeAddInternalModifier,
-				MemberAddPrivateModifier = context.Settings.MemberAddPrivateModifier,
-				SupportUnsignedRightShift = context.Settings.UnsignedRightShift,
-				SupportOperatorChecked = context.Settings.CheckedOperators,
-				UseSingleAttributeSection = !context.Settings.OneCustomAttributePerLine,
-				SortAttributes = context.Settings.SortCustomAttributes,
-			};
+
+			typeSystemAstBuilder.AlwaysUseShortTypeNames = !context.Settings.FullyQualifyAllTypes;
+			typeSystemAstBuilder.UseNullableSpecifierForValueTypes = context.Settings.LiftNullables;
+			typeSystemAstBuilder.SupportInitAccessors = context.Settings.InitAccessors;
+			typeSystemAstBuilder.SupportRecordClasses = context.Settings.RecordClasses;
+			typeSystemAstBuilder.SupportRecordStructs = context.Settings.RecordStructs;
+			typeSystemAstBuilder.AlwaysUseGlobal = context.Settings.AlwaysUseGlobal;
+			typeSystemAstBuilder.TypeAddInternalModifier = context.Settings.TypeAddInternalModifier;
+			typeSystemAstBuilder.MemberAddPrivateModifier = context.Settings.MemberAddPrivateModifier;
+			typeSystemAstBuilder.SupportUnsignedRightShift = context.Settings.UnsignedRightShift;
+			typeSystemAstBuilder.SupportOperatorChecked = context.Settings.CheckedOperators;
+			typeSystemAstBuilder.UseSingleAttributeSection = !context.Settings.OneCustomAttributePerLine;
+			typeSystemAstBuilder.SortAttributes = context.Settings.SortCustomAttributes;
+
 			currentTypeResolveContext =
 				new SimpleTypeResolveContext(typeSystem.MainModule).WithCurrentTypeDefinition(
 					typeSystem.MainModule.GetDefinition(context.CurrentType));
-			currentDecompileRun = new DecompileRun(context.Settings) { CancellationToken = context.CancellationToken, Context = context};
 		}
 
 		public void AddAssembly(ModuleDef moduleDefinition, bool decompileAsm, bool decompileMod)
@@ -112,24 +111,81 @@ namespace ICSharpCode.Decompiler.CSharp
 			if (decompileAsm && moduleDefinition.Assembly != null)
 			{
 				RequiredNamespaceCollector.CollectAttributeNamespacesOnlyAssembly(typeSystem.MainModule, currentDecompileRun.Namespaces);
-				foreach (var a in typeSystem.MainModule.GetAssemblyAttributes()) {
-					var attrSection = new AttributeSection(typeSystemAstBuilder.ConvertAttribute(a)) {
-						AttributeTarget =  "assembly"
+				IEnumerable<CustomAttribute> customAttributes = moduleDefinition.Assembly.GetCustomAttributes();
+				if (context.Settings.SortCustomAttributes)
+					customAttributes = customAttributes.OrderBy(a => a.AttributeType.FullName);
+				List<CustomAttribute> assemblyAttributes = customAttributes.ToList();
+				bool hasTypeForwarders = assemblyAttributes.Any(IsTypeForwardedToAttribute);
+				if (hasTypeForwarders) {
+					var newCas = assemblyAttributes.Where(a => !IsTypeForwardedToAttribute(a)).ToList();
+					var tft = new List<CustomAttribute>(assemblyAttributes.Where(IsTypeForwardedToAttribute));
+					tft.Sort(CompareTypeForwardedToAttributes);
+					newCas.AddRange(tft);
+					assemblyAttributes = newCas;
+				}
+
+				var builder = new AttributeListBuilder(typeSystem.MainModule, assemblyAttributes.Count);
+				builder.Add(assemblyAttributes, SymbolKind.Module);
+				var tsAttrs = builder.Build();
+
+				IAssembly lastAssembly = null;
+				foreach (var attribute in tsAttrs.Select(x => typeSystemAstBuilder.ConvertAttribute(x))) {
+					if (hasTypeForwarders && attribute.Annotation<CustomAttribute>() is CustomAttribute ca && IsTypeForwardedToAttribute(ca, out var exportedType)) {
+						if (lastAssembly is null || !AssemblyNameComparer.CompareAll.Equals(exportedType.DefinitionAssembly, lastAssembly)) {
+							lastAssembly = exportedType.DefinitionAssembly;
+							syntaxTree.AddChild(new Comment(" " + lastAssembly.FullName), Roles.Comment);
+						}
+					}
+
+					var section = new AttributeSection {
+						AttributeTarget = "assembly"
 					};
-					syntaxTree.AddChild(attrSection, SyntaxTree.MemberRole);
+					section.Attributes.Add(attribute);
+					syntaxTree.AddChild(section, SyntaxTree.MemberRole);
 				}
 			}
 
 			if (decompileMod)
 			{
 				RequiredNamespaceCollector.CollectAttributeNamespacesOnlyModule(typeSystem.MainModule, currentDecompileRun.Namespaces);
-				foreach (var a in typeSystem.MainModule.GetModuleAttributes()) {
+				IEnumerable<IAttribute> moduleAttributes = typeSystem.MainModule.GetModuleAttributes();
+				if (context.Settings.SortCustomAttributes)
+					moduleAttributes = moduleAttributes.OrderBy(a => a.AttributeType.FullName);
+				foreach (var a in moduleAttributes) {
 					var attrSection = new AttributeSection(typeSystemAstBuilder.ConvertAttribute(a)) {
 						AttributeTarget = "module"
 					};
 					syntaxTree.AddChild(attrSection, SyntaxTree.MemberRole);
 				}
 			}
+		}
+
+		static bool IsTypeForwardedToAttribute(CustomAttribute ca) => IsTypeForwardedToAttribute(ca, out _);
+		static bool IsTypeForwardedToAttribute(CustomAttribute ca, out ITypeDefOrRef type) {
+			type = null;
+			if (ca.TypeFullName != "System.Runtime.CompilerServices.TypeForwardedToAttribute")
+				return false;
+			if (ca.ConstructorArguments.Count != 1)
+				return false;
+			return ca.ConstructorArguments[0].Value is TypeDefOrRefSig tdrs && (type = tdrs.TypeDefOrRef) is not null;
+		}
+
+		static int CompareTypeForwardedToAttributes(CustomAttribute x, CustomAttribute y) {
+			Debug.Assert(IsTypeForwardedToAttribute(x));
+			Debug.Assert(IsTypeForwardedToAttribute(y));
+			return CompareExportedTypes(((TypeDefOrRefSig)x.ConstructorArguments[0].Value).TypeDefOrRef, ((TypeDefOrRefSig)y.ConstructorArguments[0].Value).TypeDefOrRef);
+		}
+
+		static int CompareExportedTypes(ITypeDefOrRef x, ITypeDefOrRef y) {
+			var xasm = x.DefinitionAssembly;
+			var yasm = y.DefinitionAssembly;
+			int c = StringComparer.OrdinalIgnoreCase.Compare(xasm.FullName, yasm.FullName);
+			if (c != 0)
+				return c;
+			c = StringComparer.OrdinalIgnoreCase.Compare(x.Name, y.Name);
+			if (c != 0)
+				return c;
+			return x.MDToken.CompareTo(y.MDToken);
 		}
 
 		private NamespaceDeclaration GetCodeNamespace(string name, IAssembly asm)
@@ -423,7 +479,7 @@ namespace ICSharpCode.Decompiler.CSharp
 										&& InheritanceHelper.GetBaseMember(tsMethod) == null && IsTypeHierarchyKnown(tsMethod.DeclaringType))
 			{
 				methodDecl.Modifiers &= ~Modifiers.Override;
-				if (!tsMethod.DeclaringTypeDefinition.IsSealed)
+				if (tsMethod.DeclaringTypeDefinition is not null && !tsMethod.DeclaringTypeDefinition.IsSealed)
 					methodDecl.Modifiers |= Modifiers.Virtual;
 			}
 			if (IsCovariantReturnOverride(tsMethod))
@@ -770,10 +826,10 @@ namespace ICSharpCode.Decompiler.CSharp
 					MethodDebugInfoBuilder builder3;
 					BlockStatement bs;
 					try {
-						if (context.AsyncMethodBodyDecompilation) {
-							var clonedContext = this.context.Clone();
+						if (context.AsyncMethodBodyDecompilation)
+						{
 							var bodyTask = Task.Run(() => {
-								if (clonedContext.CancellationToken.IsCancellationRequested)
+								if (context.CancellationToken.IsCancellationRequested)
 									return default;
 								var asyncState = GetAsyncMethodBodyDecompilationState();
 								var sb = asyncState.StringBuilder;
@@ -781,7 +837,7 @@ namespace ICSharpCode.Decompiler.CSharp
 								MethodDebugInfoBuilder builder2;
 								ILFunction ilFunction = null;
 								try {
-									body = CSharpAstMethodBodyBuilder.DecompileMethodBody(method, tsMethod, currentDecompileRun, typeResolveContext, typeSystem, clonedContext, sb, methodNode, out builder2, out ilFunction);
+									body = CSharpAstMethodBodyBuilder.DecompileMethodBody(method, tsMethod, currentDecompileRun, typeResolveContext, typeSystem, context, sb, methodNode, out builder2, out ilFunction);
 								}
 								catch (OperationCanceledException) {
 									throw;
@@ -791,7 +847,7 @@ namespace ICSharpCode.Decompiler.CSharp
 								}
 								Return(asyncState);
 								return new AsyncMethodBodyResult(methodNode, method, body, builder2, ilFunction);
-							}, clonedContext.CancellationToken);
+							}, context.CancellationToken);
 							methodBodyTasks.Add(bodyTask);
 						}
 						else {

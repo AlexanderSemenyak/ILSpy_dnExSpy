@@ -88,8 +88,6 @@ namespace ICSharpCode.Decompiler.CSharp
 		}
 
 		void ClearCurrentMethodState() {
-			context.CurrentMethodIsAsync = false;
-			context.CurrentMethodIsYieldReturn = false;
 		}
 	}
 }

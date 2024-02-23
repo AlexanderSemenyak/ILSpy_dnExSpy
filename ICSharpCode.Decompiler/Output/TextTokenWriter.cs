@@ -245,8 +245,8 @@ namespace ICSharpCode.Decompiler
 						   node is IndexerExpression);
 
 			// Add a ref to the method if it's a delegate call
-			if (!addRef && node is InvocationExpression && memberRef is dnlib.DotNet.IMethod) {
-				var md = (memberRef as dnlib.DotNet.IMethod).Resolve();
+			if (!addRef && node is InvocationExpression && memberRef is dnlib.DotNet.IMethod method) {
+				var md = method.ResolveMethodDef();
 				if (md != null && md.DeclaringType != null && md.DeclaringType.IsDelegate)
 					addRef = true;
 			}

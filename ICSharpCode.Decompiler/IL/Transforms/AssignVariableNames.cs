@@ -1,4 +1,4 @@
-// Copyright (c) 2017 Siegfried Pammer
+﻿// Copyright (c) 2017 Siegfried Pammer
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy of this
 // software and associated documentation files (the "Software"), to deal in the Software
@@ -52,9 +52,9 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 		};
 
 		ILTransformContext context;
-		List<string> currentLowerCaseTypeOrMemberNames;
-		Dictionary<string, int> reservedVariableNames;
-		Dictionary<dnlib.DotNet.MethodDef, string> localFunctionMapping;
+		List<string> currentLowerCaseTypeOrMemberNames = new List<string>();
+		Dictionary<string, int> reservedVariableNames = new Dictionary<string, int>();
+		Dictionary<dnlib.DotNet.MethodDef, string> localFunctionMapping = new Dictionary<dnlib.DotNet.MethodDef, string>();
 		HashSet<ILVariable> loopCounters;
 		const char maxLoopVariableName = 'n';
 		int numDisplayClassLocals;
@@ -63,8 +63,8 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 		{
 			this.context = context;
 
-			reservedVariableNames = new Dictionary<string, int>();
-			currentLowerCaseTypeOrMemberNames = new List<string>();
+			reservedVariableNames.Clear();
+			currentLowerCaseTypeOrMemberNames.Clear();
 			var currentLowerCaseMemberNames = CollectAllLowerCaseMemberNames(function.Method.DeclaringTypeDefinition);
 			foreach (var name in currentLowerCaseMemberNames)
 				currentLowerCaseTypeOrMemberNames.Add(name);
@@ -74,7 +74,7 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 				currentLowerCaseTypeOrMemberNames.Add(name);
 				AddExistingName(reservedVariableNames, name);
 			}
-			localFunctionMapping = new Dictionary<dnlib.DotNet.MethodDef, string>();
+			localFunctionMapping.Clear();
 			loopCounters = CollectLoopCounters(function);
 			foreach (var f in function.Descendants.OfType<ILFunction>())
 			{
@@ -422,13 +422,21 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 			}
 			if (string.IsNullOrEmpty(proposedName))
 			{
-				var proposedNameForAddress = variable.AddressInstructions.OfType<LdLoca>()
-													 .Select(arg => arg.Parent is CallInstruction c ? c.GetParameter(arg.ChildIndex)?.Name : null)
-													 .Where(arg => !string.IsNullOrWhiteSpace(arg))
-													 .Except(currentLowerCaseTypeOrMemberNames).ToList();
-				if (proposedNameForAddress.Count > 0)
+				for (int i = 0; i < variable.AddressInstructions.Count; i++)
 				{
-					proposedName = proposedNameForAddress[0];
+					LdLoca ldLoca = variable.AddressInstructions[i];
+					if (ldLoca.Parent is not CallInstruction c)
+						continue;
+					var name = c.GetParameter(ldLoca.ChildIndex)?.Name;
+					if (string.IsNullOrEmpty(name) || currentLowerCaseTypeOrMemberNames.Contains(name))
+						continue;
+					if (string.IsNullOrEmpty(proposedName))
+						proposedName = name;
+					else
+					{
+						proposedName = null;
+						break;
+					}
 				}
 			}
 			if (string.IsNullOrEmpty(proposedName))
@@ -456,12 +464,18 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 			}
 			if (string.IsNullOrEmpty(proposedName))
 			{
-				var proposedNameForLoads = variable.LoadInstructions
-					.Select(arg => GetNameForArgument(arg.Parent, arg.ChildIndex))
-					.Except(currentLowerCaseTypeOrMemberNames).ToList();
-				if (proposedNameForLoads.Count == 1)
-				{
-					proposedName = proposedNameForLoads[0];
+				for (var i = 0; i < variable.LoadInstructions.Count; i++) {
+					var arg = variable.LoadInstructions[i];
+					var prop = GetNameForArgument(arg.Parent, arg.ChildIndex);
+					if (currentLowerCaseTypeOrMemberNames.Contains(prop))
+						continue;
+					if (string.IsNullOrEmpty(proposedName))
+						proposedName = prop;
+					else
+					{
+						proposedName = null;
+						break;
+					}
 				}
 			}
 			if (string.IsNullOrEmpty(proposedName) && variable.Kind == VariableKind.StackSlot)
@@ -688,6 +702,38 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 				return "obj";
 			else
 				return char.ToLower(name[0]) + name.Substring(1);
+		}
+
+		string CleanUpVariableNameSB(string name)
+		{
+			var sb = context.StringBuilder;
+			sb.Clear();
+
+			int pos = name.LastIndexOf('`');
+			if (pos < 0)
+				pos = name.Length;
+			for (int i = 0; i < pos; i++) {
+				var c = name[i];
+				sb.Append(c);
+			}
+
+			// remove field prefix:
+			if (sb.Length > 2 && sb[0] == 'm' && sb[1] == '_')
+				sb.Remove(0, 2);
+			else if (sb.Length > 1 && sb[0] == '_' && (char.IsLetter(sb[1]) || sb[1] == '_'))
+				sb.Remove(0, 1);
+
+			if (sb.Length == 0)
+				return "obj";
+
+			for (int i = 0; i < sb.Length; i++) {
+				var origChar = sb[i];
+				var newChar = char.ToLowerInvariant(origChar);
+				if (origChar == newChar)
+					break;
+				sb[i] = newChar;
+			}
+			return sb.ToString();
 		}
 
 		internal static IType GuessType(IType variableType, ILInstruction inst, ILTransformContext context)

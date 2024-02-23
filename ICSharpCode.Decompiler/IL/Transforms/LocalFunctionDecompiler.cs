@@ -475,7 +475,21 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 				function.DeclarationScope = (BlockContainer)rootFunction.Body;
 				function.CheckInvariant(ILPhase.Normal);
 				var nestedContext = new ILTransformContext(context, function);
-				function.RunTransforms(CSharpDecompiler.GetILTransforms().TakeWhile(t => !(t is LocalFunctionDecompiler)), nestedContext);
+
+				IList<IILTransform> transforms;
+				if (context.DecompileRun is not null)
+					transforms = context.DecompileRun.Context.Cache.GetILPipeline();
+				else
+					transforms = CSharpDecompiler.GetILTransforms();
+				try
+				{
+					function.RunTransforms(transforms.TakeWhile(t => !(t is LocalFunctionDecompiler)), nestedContext);
+				}
+				finally
+				{
+					context.DecompileRun?.Context.Cache.Return(transforms);
+				}
+
 				function.DeclarationScope = null;
 			}
 			function.ReducedMethod = ReduceToLocalFunction(function.Method, skipCount);

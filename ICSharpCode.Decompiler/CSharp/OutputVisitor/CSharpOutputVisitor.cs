@@ -1011,7 +1011,9 @@ namespace ICSharpCode.Decompiler.CSharp.OutputVisitor
 							or BaseReferenceExpression
 					} _:
 						return true;
-					case MemberReferenceExpression memberRef when memberRef.Target is TypeReferenceExpression:
+					case CastExpression { Expression: PrimitiveExpression }:
+						return true;
+					case MemberReferenceExpression { Target: TypeReferenceExpression } memberRef:
 						return memberRef.MemberName == "MinValue" || memberRef.MemberName == "MaxValue" ||
 							   memberRef.MemberName == "NaN" || memberRef.MemberName == "PositiveInfinity" ||
 							   memberRef.MemberName == "NegativeInfinity" || memberRef.MemberName == "Epsilon";
@@ -1533,7 +1535,7 @@ namespace ICSharpCode.Decompiler.CSharp.OutputVisitor
 			if (interpolation.Suffix != null)
 			{
 				WriteToken(Roles.Colon, BoxedTextColor.Punctuation);
-				writer.WriteInterpolatedText(interpolation.Suffix);
+				writer.WriteInterpolatedText(interpolation.Suffix, BoxedTextColor.String);
 			}
 			leftBrace.RightBrace();
 

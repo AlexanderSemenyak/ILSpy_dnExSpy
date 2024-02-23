@@ -31,7 +31,7 @@ namespace ICSharpCode.Decompiler.CSharp.Syntax
 		/// <summary>
 		/// Gets all annotations stored on this IAnnotatable.
 		/// </summary>
-		IEnumerable<object> Annotations {
+		IReadOnlyList<object> Annotations {
 			get;
 		}
 
@@ -284,7 +284,7 @@ namespace ICSharpCode.Decompiler.CSharp.Syntax
 		/// <summary>
 		/// Gets all annotations stored on this AstNode.
 		/// </summary>
-		public IEnumerable<object> Annotations {
+		public IReadOnlyList<object> Annotations {
 			get {
 				object annotations = this.annotations;
 				AnnotationList list = annotations as AnnotationList;
@@ -300,7 +300,7 @@ namespace ICSharpCode.Decompiler.CSharp.Syntax
 					if (annotations != null)
 						return new object[] { annotations };
 					else
-						return Enumerable.Empty<object>();
+						return Array.Empty<object>();
 				}
 			}
 		}

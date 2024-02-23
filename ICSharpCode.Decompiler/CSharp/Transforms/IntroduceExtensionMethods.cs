@@ -44,11 +44,11 @@ namespace ICSharpCode.Decompiler.CSharp.Transforms
 			rootNode.AcceptVisitor(this);
 		}
 
-		Stack<CSharpTypeResolveContext> resolveContextStack = new Stack<CSharpTypeResolveContext>();
+		readonly Stack<CSharpTypeResolveContext> resolveContextStack = new Stack<CSharpTypeResolveContext>();
 
 		void InitializeContext(UsingScope usingScope)
 		{
-			this.resolveContextStack = new Stack<CSharpTypeResolveContext>();
+			this.resolveContextStack.Clear();
 			if (!string.IsNullOrEmpty(context.CurrentTypeDefinition?.Namespace))
 			{
 				foreach (string ns in context.CurrentTypeDefinition.Namespace.Split('.'))

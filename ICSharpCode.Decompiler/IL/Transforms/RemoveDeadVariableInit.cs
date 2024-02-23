@@ -34,6 +34,8 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 	/// </summary>
 	public class RemoveDeadVariableInit : IILTransform
 	{
+		private Queue<ILVariable> variableQueue = new Queue<ILVariable>();
+
 		public void Run(ILFunction function, ILTransformContext context)
 		{
 			ResetUsesInitialValueFlag(function, context);
@@ -44,7 +46,10 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 			// when the variable goes out of scope.
 			bool removeDeadStores = function.IsAsync || function.IsIterator || context.Settings.RemoveDeadStores;
 
-			var variableQueue = new Queue<ILVariable>(function.Variables);
+			variableQueue.Clear();
+			for (var i = 0; i < function.Variables.Count; i++)
+				variableQueue.Enqueue(function.Variables[i]);
+
 			while (variableQueue.Count > 0)
 			{
 				var v = variableQueue.Dequeue();

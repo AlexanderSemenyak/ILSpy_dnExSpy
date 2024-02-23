@@ -90,10 +90,10 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 		}
 
 		StatementTransformContext context;
-		Dictionary<ILVariable, (IType, string)> parameters;
-		Dictionary<ILVariable, ILVariable> parameterMapping;
-		List<ILInstruction> instructionsToRemove;
-		Stack<ILFunction> lambdaStack;
+		readonly Dictionary<ILVariable, (IType, string)> parameters = new Dictionary<ILVariable, (IType, string)>();
+		readonly Dictionary<ILVariable, ILVariable> parameterMapping = new Dictionary<ILVariable, ILVariable>();
+		readonly List<ILInstruction> instructionsToRemove = new List<ILInstruction>();
+		readonly Stack<ILFunction> lambdaStack = new Stack<ILFunction>();
 		CSharpConversions conversions;
 		CSharpResolver resolver;
 
@@ -104,10 +104,10 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 			this.context = context;
 			this.conversions = CSharpConversions.Get(context.TypeSystem);
 			this.resolver = new CSharpResolver(context.TypeSystem);
-			this.parameters = new Dictionary<ILVariable, (IType, string)>();
-			this.parameterMapping = new Dictionary<ILVariable, ILVariable>();
-			this.instructionsToRemove = new List<ILInstruction>();
-			this.lambdaStack = new Stack<ILFunction>();
+			this.parameters.Clear();
+			this.parameterMapping.Clear();
+			this.instructionsToRemove.Clear();
+			this.lambdaStack.Clear();
 			for (int i = pos; i < block.Instructions.Count; i++)
 			{
 				if (MatchParameterVariableAssignment(block.Instructions[i], out var v, out var type, out var name))

@@ -1073,7 +1073,7 @@ namespace ICSharpCode.Decompiler.CSharp.Syntax
 				IType underlyingType = NullableType.GetUnderlyingType(type);
 				if (underlyingType.Kind == TypeKind.Enum)
 				{
-					return ConvertEnumValue(underlyingType, (long)CSharpPrimitiveCast.Cast(TypeCode.Int64, constantValue, false));
+					return ConvertEnumValue(underlyingType, CastToLong(constantValue));
 				}
 				else
 				{
@@ -1248,14 +1248,14 @@ namespace ICSharpCode.Decompiler.CSharp.Syntax
 		Expression ConvertEnumValue(IType type, long val)
 		{
 			ITypeDefinition enumDefinition = type.GetDefinition();
-			TypeCode enumBaseTypeCode = ReflectionHelper.GetTypeCode(enumDefinition.EnumUnderlyingType);
-			var fields = enumDefinition.Fields
-				.Select(PrepareConstant)
-				.Where(f => f.field != null)
-				.ToArray();
-			foreach (var (value, field) in fields)
+			foreach (IField field in enumDefinition.Fields)
 			{
-				if (value == val)
+				if (!field.IsStatic || !field.IsConst)
+					continue;
+				object constantValue = field.GetConstantValue();
+				if (constantValue == null)
+					continue;
+				if (CastToLong(constantValue) == val)
 				{
 					var mre = new MemberReferenceExpression {
 						Target = new TypeReferenceExpression(ConvertType(type)),
@@ -1266,6 +1266,7 @@ namespace ICSharpCode.Decompiler.CSharp.Syntax
 					return mre;
 				}
 			}
+			TypeCode enumBaseTypeCode = ReflectionHelper.GetTypeCode(enumDefinition.EnumUnderlyingType);
 			if (IsFlagsEnum(enumDefinition))
 			{
 				long enumValue = val;
@@ -1287,6 +1288,10 @@ namespace ICSharpCode.Decompiler.CSharp.Syntax
 						negatedEnumValue &= uint.MaxValue;
 						break;
 				}
+				var fields = enumDefinition.Fields
+					.Select(PrepareConstant)
+					.Where(f => f.field != null)
+					.ToArray();
 				Expression negatedExpr = null;
 				foreach (var (fieldValue, field) in fields.OrderByDescending(f => CalculateHammingWeight(unchecked((ulong)f.value))))
 				{
@@ -1336,12 +1341,12 @@ namespace ICSharpCode.Decompiler.CSharp.Syntax
 
 			(long value, IField field) PrepareConstant(IField field)
 			{
-				if (!field.IsConst)
+				if (!field.IsStatic || !field.IsConst)
 					return (-1, null);
 				object constantValue = field.GetConstantValue();
 				if (constantValue == null)
 					return (-1, null);
-				return ((long)CSharpPrimitiveCast.Cast(TypeCode.Int64, constantValue, checkForOverflow: false), field);
+				return (CastToLong(constantValue), field);
 			}
 
 			// see https://en.wikipedia.org/wiki/Hamming_weight
@@ -1358,6 +1363,33 @@ namespace ICSharpCode.Decompiler.CSharp.Syntax
 			}
 		}
 
+		// Avoids unnecessary boxing that would occur with CSharpPrimitiveCast
+		static long CastToLong(object input)
+		{
+			unchecked
+			{
+				TypeCode sourceType = Type.GetTypeCode(input.GetType());
+				return sourceType switch {
+					TypeCode.Char => (char)input,
+					TypeCode.SByte => (sbyte)input,
+					TypeCode.Byte => (byte)input,
+					TypeCode.Int16 => (short)input,
+					TypeCode.UInt16 => (ushort)input,
+					TypeCode.Int32 => (int)input,
+					TypeCode.UInt32 => (uint)input,
+					TypeCode.Int64 => (long)input,
+					TypeCode.UInt64 => (long)(ulong)input,
+					TypeCode.Single => (long)(float)input,
+					TypeCode.Double => (long)(double)input,
+					TypeCode.Decimal => (long)(decimal)input,
+					TypeCode.Boolean => (bool)input ? 1 : 0,
+					_ => throw new InvalidCastException("Cast from " + sourceType + " to Int64 not supported.")
+				};
+			}
+		}
+
+		private static readonly int[] smallDivisors = { 2, 3, 5 };
+
 		static bool IsValidFraction(long num, long den)
 		{
 			if (!(den > 0 && num != 0))
@@ -1365,7 +1397,8 @@ namespace ICSharpCode.Decompiler.CSharp.Syntax
 
 			if (den == 1 || Math.Abs(num) == 1)
 				return true;
-			return Math.Abs(num) < den && new int[] { 2, 3, 5 }.Any(x => den % x == 0);
+
+			return Math.Abs(num) < den && smallDivisors.Any(x => den % x == 0);
 		}
 
 		[MethodImpl(MethodImplOptions.NoInlining)]

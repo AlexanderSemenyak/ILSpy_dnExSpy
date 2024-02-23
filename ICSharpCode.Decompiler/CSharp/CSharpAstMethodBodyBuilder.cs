@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 
 using System;
 using System.Collections.Generic;
@@ -9,7 +9,6 @@ using dnlib.DotNet;
 using dnlib.DotNet.Emit;
 
 using dnSpy.Contracts.Decompiler;
-using dnSpy.Contracts.Text;
 
 using ICSharpCode.Decompiler.CSharp.Syntax;
 using ICSharpCode.Decompiler.IL;
@@ -34,7 +33,7 @@ namespace ICSharpCode.Decompiler.CSharp
 		{
 			try {
 				var ilReader = new ILReader(typeSystem.MainModule) {
-					UseDebugSymbols = context.Settings.UseDebugSymbols,
+					UseDebugSymbols = decompileRun.Settings.UseDebugSymbols,
 					CalculateILSpans = context.CalculateILSpans
 				};
 				var body = BlockStatement.Null;
@@ -43,9 +42,10 @@ namespace ICSharpCode.Decompiler.CSharp
 
 				AddAnnotationsToDeclaration(tsMethod, entityDeclaration, function);
 
-				var localSettings = context.Settings.Clone();
+				var localSettings = decompileRun.Settings;
 				if (IsWindowsFormsInitializeComponentMethod(tsMethod))
 				{
+					localSettings = decompileRun.Settings.Clone();
 					localSettings.UseImplicitMethodGroupConversion = false;
 					localSettings.UsingDeclarations = false;
 					localSettings.AlwaysCastTargetsOfExplicitInterfaceImplementationCalls = true;
@@ -58,16 +58,25 @@ namespace ICSharpCode.Decompiler.CSharp
 					DecompileRun = decompileRun,
 					CalculateILSpans = context.CalculateILSpans
 				};
-				foreach (var transform in CSharpDecompiler.GetILTransforms())
+
+				var ilPipeline = context.Cache.GetILPipeline();
+				try
 				{
-					context.CancellationToken.ThrowIfCancellationRequested();
-					transform.Run(function, ilTransformContext);
-					function.CheckInvariant(ILPhase.Normal);
-					// When decompiling definitions only, we can cancel decompilation of all steps
-					// after yield and async detection, because only those are needed to properly set
-					// IsAsync/IsIterator flags on ILFunction.
-					if (!localSettings.DecompileMemberBodies && transform is AsyncAwaitDecompiler)
-						break;
+					foreach (var transform in ilPipeline)
+					{
+						context.CancellationToken.ThrowIfCancellationRequested();
+						transform.Run(function, ilTransformContext);
+						function.CheckInvariant(ILPhase.Normal);
+						// When decompiling definitions only, we can cancel decompilation of all steps
+						// after yield and async detection, because only those are needed to properly set
+						// IsAsync/IsIterator flags on ILFunction.
+						if (!localSettings.DecompileMemberBodies && transform is AsyncAwaitDecompiler)
+							break;
+					}
+				}
+				finally
+				{
+					context.Cache.Return(ilPipeline);
 				}
 
 				if (localSettings.DecompileMemberBodies) {
@@ -81,6 +90,16 @@ namespace ICSharpCode.Decompiler.CSharp
 						context.CancellationToken
 					);
 					body = statementBuilder.ConvertAsBlock(function.Body);
+
+					var ilSpans = function.Body.GetSelfAndChildrenRecursiveILSpans_OrderAndJoin();
+					if (ilSpans.Count > 1)
+						function.Warnings.Add("More then one ILSpan for method body! (ILAst) " + string.Join(", ", ilSpans.Select(s => s.ToString())));
+
+					ilSpans.Clear();
+					body.GetAllRecursiveILSpans(ilSpans);
+					ilSpans = ILSpan.OrderAndCompactList(ilSpans);
+					if (ilSpans.Count > 1)
+						function.Warnings.Add("More then one ILSpan for method body! (AST) " + string.Join(", ", ilSpans.Select(s => s.ToString())));
 
 					Comment? prev = null;
 					foreach (string warning in function.Warnings)

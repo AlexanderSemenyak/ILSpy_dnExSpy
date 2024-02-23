@@ -49,16 +49,6 @@ namespace ICSharpCode.Decompiler
 			return string.Format("IL_{0:X4}", offset);
 		}
 
-		public static MethodDef Resolve(this IMethod method)
-		{
-			if (method is MethodSpec)
-				method = ((MethodSpec)method).Method;
-			if (method is MemberRef)
-				return ((MemberRef)method).ResolveMethod();
-			else
-				return (MethodDef)method;
-		}
-
 		public static TypeSig GetTypeSig(this IType type)
 		{
 			if (type is null)

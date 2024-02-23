@@ -341,9 +341,9 @@ namespace ICSharpCode.Decompiler.CSharp
 				ilSpans.AddRange(sw.HiddenEnd.GetAllRecursiveILSpans());
 			if (node is CatchClause catchClause)
 				ilSpans.AddRange(catchClause.HiddenWhen.GetAllRecursiveILSpans());
-			foreach (var ann in node.Annotations)
+			for (int i = 0; i < node.Annotations.Count; i++)
 			{
-				if (ann is IList<ILSpan> list)
+				if (node.Annotations[i] is IList<ILSpan> list)
 					ilSpans.AddRange(list);
 			}
 		}

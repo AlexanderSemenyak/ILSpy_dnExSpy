@@ -26,9 +26,11 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 {
 	public class FixRemainingIncrements : IILTransform
 	{
+		private readonly List<Call> callsToFix = new List<Call>();
+
 		void IILTransform.Run(ILFunction function, ILTransformContext context)
 		{
-			var callsToFix = new List<Call>();
+			callsToFix.Clear();
 			foreach (var call in function.Descendants.OfType<Call>())
 			{
 				if (!UserDefinedCompoundAssign.IsIncrementOrDecrement(call.Method, context.Settings))

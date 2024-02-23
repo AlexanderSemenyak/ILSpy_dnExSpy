@@ -41,15 +41,14 @@ namespace ICSharpCode.Decompiler.TypeSystem
 		internal readonly ModuleDef metadata;
 		readonly TypeSystemOptions options;
 		internal readonly Nullability NullableContext;
+		MetadataNamespace rootNamespace;
 
-		readonly MetadataNamespace rootNamespace;
-
-		private readonly Dictionary<TypeDef, MetadataTypeDefinition> typeDefDict;
-		private readonly Dictionary<FieldDef, MetadataField> fieldDefDict;
-		private readonly Dictionary<MethodDef, MetadataMethod> methodDefDict;
-		private readonly Dictionary<PropertyDef, MetadataProperty> propertyDefDict;
-		private readonly Dictionary<EventDef, MetadataEvent> eventDefDict;
-		internal readonly Dictionary<TypeRef, IType> typeRefDict;
+		private readonly Dictionary<TypeDef, MetadataTypeDefinition> typeDefDict = new Dictionary<TypeDef, MetadataTypeDefinition>();
+		private readonly Dictionary<FieldDef, MetadataField> fieldDefDict = new Dictionary<FieldDef, MetadataField>();
+		private readonly Dictionary<MethodDef, MetadataMethod> methodDefDict = new Dictionary<MethodDef, MetadataMethod>();
+		private readonly Dictionary<PropertyDef, MetadataProperty> propertyDefDict = new Dictionary<PropertyDef, MetadataProperty>();
+		private readonly Dictionary<EventDef, MetadataEvent> eventDefDict = new Dictionary<EventDef, MetadataEvent>();
+		internal readonly Dictionary<TypeRef, IType> typeRefDict = new Dictionary<TypeRef, IType>();
 
 		internal MetadataModule(ICompilation compilation, PEFile peFile, TypeSystemOptions options)
 		{
@@ -63,24 +62,15 @@ namespace ICSharpCode.Decompiler.TypeSystem
 				var asmdef = metadata.Assembly;
 				this.AssemblyName = asmdef.Name;
 				this.FullAssemblyName = asmdef.FullName;
+				AssemblyVersion = asmdef.Version;
 			} else {
-				var moddef = metadata;
-				this.AssemblyName = moddef.Name;
+				this.AssemblyName = metadata.Name;
 				this.FullAssemblyName = this.AssemblyName;
 			}
 
 			var customAttrs = metadata.CustomAttributes;
 			this.NullableContext = customAttrs.GetNullableContext() ?? Nullability.Oblivious;
 			this.minAccessibilityForNRT = FindMinimumAccessibilityForNRT(customAttrs);
-			this.rootNamespace = new MetadataNamespace(this, null, string.Empty,
-				NamespaceDefinition.GetRootNamespace(compilation.NameComparer, metadata.Types));
-
-			typeDefDict = new Dictionary<TypeDef, MetadataTypeDefinition>();
-			fieldDefDict = new Dictionary<FieldDef, MetadataField>();
-			methodDefDict = new Dictionary<MethodDef, MetadataMethod>();
-			propertyDefDict = new Dictionary<PropertyDef, MetadataProperty>();
-			eventDefDict = new Dictionary<EventDef, MetadataEvent>();
-			typeRefDict = new Dictionary<TypeRef, IType>();
 		}
 
 		public TypeSystemOptions TypeSystemOptions => options;
@@ -97,7 +87,15 @@ namespace ICSharpCode.Decompiler.TypeSystem
 		string ISymbol.Name => AssemblyName;
 		SymbolKind ISymbol.SymbolKind => SymbolKind.Module;
 
-		public INamespace RootNamespace => rootNamespace;
+		public INamespace RootNamespace {
+			get {
+				var rootNamespace = LazyInit.VolatileRead(ref this.rootNamespace);
+				if (rootNamespace != null)
+					return rootNamespace;
+				rootNamespace = new MetadataNamespace(this, null, NamespaceDefinition.GetRootNamespace(metadata.Types));
+				return LazyInit.GetOrSet(ref this.rootNamespace, rootNamespace);
+			}
+		}
 
 		public IEnumerable<ITypeDefinition> TopLevelTypeDefinitions {
 			get {
@@ -204,8 +202,7 @@ namespace ICSharpCode.Decompiler.TypeSystem
 			lock (typeDefDict) {
 				if (typeDefDict.TryGetValue(handle, out var tsType))
 					return tsType;
-				tsType = new MetadataTypeDefinition(this, handle);
-				return typeDefDict[handle] = tsType;
+				return typeDefDict[handle] = new MetadataTypeDefinition(this, handle);
 			}
 		}
 
@@ -221,8 +218,7 @@ namespace ICSharpCode.Decompiler.TypeSystem
 			lock (fieldDefDict) {
 				if (fieldDefDict.TryGetValue(handle, out var tsField))
 					return tsField;
-				tsField = new MetadataField(this, handle);
-				return fieldDefDict[handle] = tsField;
+				return fieldDefDict[handle] = new MetadataField(this, handle);
 			}
 		}
 
@@ -238,8 +234,7 @@ namespace ICSharpCode.Decompiler.TypeSystem
 			lock (methodDefDict) {
 				if (methodDefDict.TryGetValue(handle, out var tsMethod))
 					return tsMethod;
-				tsMethod = new MetadataMethod(this, handle);
-				return methodDefDict[handle] = tsMethod;
+				return methodDefDict[handle] = new MetadataMethod(this, handle);
 			}
 		}
 
@@ -250,8 +245,7 @@ namespace ICSharpCode.Decompiler.TypeSystem
 			lock (propertyDefDict) {
 				if (propertyDefDict.TryGetValue(handle, out var tsProperty))
 					return tsProperty;
-				tsProperty = new MetadataProperty(this, handle);
-				return propertyDefDict[handle] = tsProperty;
+				return propertyDefDict[handle] = new MetadataProperty(this, handle);
 			}
 		}
 
@@ -262,8 +256,7 @@ namespace ICSharpCode.Decompiler.TypeSystem
 			lock (eventDefDict) {
 				if (eventDefDict.TryGetValue(handle, out var tsEvent))
 					return tsEvent;
-				tsEvent = new MetadataEvent(this, handle);
-				return eventDefDict[handle] = tsEvent;
+				return eventDefDict[handle] = new MetadataEvent(this, handle);
 			}
 		}
 

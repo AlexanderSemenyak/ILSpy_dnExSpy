@@ -33,6 +33,9 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 	public class DynamicCallSiteTransform : IILTransform
 	{
 		ILTransformContext context;
+		private readonly Dictionary<IField, CallSiteInfo> callsites = new Dictionary<IField, CallSiteInfo>();
+		private readonly HashSet<BlockContainer> modifiedContainers = new HashSet<BlockContainer>();
+		private readonly Dictionary<StLoc, ILInstruction> storesToRemove = new Dictionary<StLoc, ILInstruction>();
 
 		const string CallSiteTypeName = "System.Runtime.CompilerServices.CallSite";
 		const string CSharpBinderTypeName = "Microsoft.CSharp.RuntimeBinder.Binder";
@@ -44,8 +47,8 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 
 			this.context = context;
 
-			Dictionary<IField, CallSiteInfo> callsites = new Dictionary<IField, CallSiteInfo>();
-			HashSet<BlockContainer> modifiedContainers = new HashSet<BlockContainer>();
+			callsites.Clear();
+			modifiedContainers.Clear();
 
 			foreach (var block in function.Descendants.OfType<Block>())
 			{
@@ -84,7 +87,7 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 				callsites.Add(callSiteCacheField, callSiteInfo);
 			}
 
-			var storesToRemove = new Dictionary<StLoc, ILInstruction>();
+			storesToRemove.Clear();
 
 			foreach (var invokeCall in function.Descendants.OfType<CallVirt>())
 			{

@@ -35,7 +35,7 @@ namespace ICSharpCode.Decompiler.CSharp.Transforms
 			try {
 				foreach (var transform in pipeline) {
 					//transform.Reset(context);
-					context.CancellationToken.ThrowIfCancellationRequested();
+					transformContext.CancellationToken.ThrowIfCancellationRequested();
 					if (abortCondition is not null && abortCondition(transform))
 						return;
 					transform.Run(node, transformContext);

@@ -39,7 +39,6 @@ namespace ICSharpCode.Decompiler.TypeSystem.Implementation
 
 		// eagerly loaded:
 		readonly FullTypeName fullTypeName;
-		readonly TypeAttributes attributes;
 		public TypeKind Kind { get; }
 		public bool IsByRefLike { get; }
 		public bool IsReadOnly { get; }
@@ -67,9 +66,7 @@ namespace ICSharpCode.Decompiler.TypeSystem.Implementation
 			Debug.Assert(handle != null);
 			this.module = module;
 			this.handle = handle;
-			this.attributes = handle.Attributes;
 			this.fullTypeName = handle.GetFullTypeName();
-			this.MetadataName = handle.Name;
 			// Find DeclaringType + KnownTypeCode:
 			if (handle.DeclaringType is not null) {
 				this.DeclaringTypeDefinition = module.GetDefinition(handle.DeclaringType);
@@ -300,7 +297,7 @@ namespace ICSharpCode.Decompiler.TypeSystem.Implementation
 		IMDTokenProvider IEntity.MetadataToken => handle;
 		public TypeDef MetadataToken => handle;
 
-		public string MetadataName { get; }
+		public string MetadataName => handle.Name;
 		public FullTypeName FullTypeName => fullTypeName;
 		public string Name => fullTypeName.Name;
 

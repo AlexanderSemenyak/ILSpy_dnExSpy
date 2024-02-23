@@ -35,6 +35,8 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 	/// </summary>
 	public class CopyPropagation : IILTransform
 	{
+		private readonly HashSet<ILVariable> splitVariables = new HashSet<ILVariable>(ILVariableEqualityComparer.Instance);
+
 		public static void Propagate(StLoc store, ILTransformContext context)
 		{
 			Debug.Assert(store.Variable.IsSingleDefinition);
@@ -45,7 +47,7 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 
 		public void Run(ILFunction function, ILTransformContext context)
 		{
-			var splitVariables = new HashSet<ILVariable>(ILVariableEqualityComparer.Instance);
+			splitVariables.Clear();
 			foreach (var g in function.Variables.GroupBy(v => v, ILVariableEqualityComparer.Instance))
 			{
 				if (g.Count() > 1)

@@ -38,13 +38,9 @@ namespace ICSharpCode.Decompiler
 		public DecompilerSettings Settings { get; }
 		public IDocumentationProvider DocumentationProvider { get; set; }
 		public Dictionary<ITypeDefinition, RecordDecompiler> RecordDecompilers { get; } = new Dictionary<ITypeDefinition, RecordDecompiler>();
-
 		public Dictionary<ITypeDefinition, bool> TypeHierarchyIsKnown { get; } = new();
 
-		Lazy<CSharp.TypeSystem.UsingScope> usingScope =>
-			new Lazy<CSharp.TypeSystem.UsingScope>(() => CreateUsingScope(Namespaces));
-
-		public UsingScope UsingScope => usingScope.Value;
+		public UsingScope UsingScope => CreateUsingScope(Namespaces);
 
 		public DecompilerContext Context { get; set; }
 
@@ -56,8 +52,9 @@ namespace ICSharpCode.Decompiler
 		UsingScope CreateUsingScope(HashSet<string> requiredNamespacesSuperset)
 		{
 			var usingScope = new UsingScope();
-			var copyForThreadSafety = requiredNamespacesSuperset.ToImmutableHashSet();
-			foreach (var ns in copyForThreadSafety)
+			string[] arrayForThreadSafety = new string[requiredNamespacesSuperset.Count];
+			requiredNamespacesSuperset.CopyTo(arrayForThreadSafety);
+			foreach (var ns in arrayForThreadSafety)
 			{
 				string[] parts = ns.Split('.');
 				AstType nsType = new SimpleType(parts[0]);
@@ -70,6 +67,14 @@ namespace ICSharpCode.Decompiler
 					usingScope.Usings.Add(reference);
 			}
 			return usingScope;
+		}
+
+		public void Reset()
+		{
+			DefinedSymbols.Clear();
+			Namespaces.Clear();
+			RecordDecompilers.Clear();
+			TypeHierarchyIsKnown.Clear();
 		}
 	}
 

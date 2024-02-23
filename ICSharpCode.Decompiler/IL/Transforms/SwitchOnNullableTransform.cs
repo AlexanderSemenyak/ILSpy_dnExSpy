@@ -31,12 +31,14 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 	/// </summary>
 	public class SwitchOnNullableTransform : IILTransform
 	{
+		private readonly HashSet<BlockContainer> changedContainers = new HashSet<BlockContainer>();
+
 		public void Run(ILFunction function, ILTransformContext context)
 		{
 			if (!context.Settings.LiftNullables)
 				return;
 
-			HashSet<BlockContainer> changedContainers = new HashSet<BlockContainer>();
+			changedContainers.Clear();
 
 			foreach (var block in function.Descendants.OfType<Block>())
 			{

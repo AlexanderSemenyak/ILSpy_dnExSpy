@@ -35,6 +35,8 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 	{
 		ILTransformContext context;
 		private readonly SwitchAnalysis analysis = new SwitchAnalysis();
+		private readonly HashSet<BlockContainer> changedContainers = new HashSet<BlockContainer>();
+		private readonly Dictionary<Block, Block> omittedBlocks = new Dictionary<Block, Block>();
 
 		public void Run(ILFunction function, ILTransformContext context)
 		{
@@ -45,7 +47,7 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 			BlockContainer body = (BlockContainer)function.Body;
 			var hashtableInitializers = ScanHashtableInitializerBlocks(body.EntryPoint);
 
-			HashSet<BlockContainer> changedContainers = new HashSet<BlockContainer>();
+			changedContainers.Clear();
 
 			foreach (var block in function.Descendants.OfType<Block>())
 			{
@@ -92,7 +94,7 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 					changedContainers.Add(container);
 			}
 
-			var omittedBlocks = new Dictionary<Block, Block>();
+			omittedBlocks.Clear();
 
 			// Remove all transformed hashtable initializers from the entrypoint.
 			foreach (var item in hashtableInitializers)
