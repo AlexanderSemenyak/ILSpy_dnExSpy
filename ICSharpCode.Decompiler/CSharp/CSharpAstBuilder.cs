@@ -43,6 +43,7 @@ namespace ICSharpCode.Decompiler.CSharp
 		private readonly TypeSystemAstBuilder typeSystemAstBuilder;
 		private IDecompilerTypeSystem typeSystem;
 		private ITypeResolveContext currentTypeResolveContext;
+		private CodeMappingInfo currentCodeMappingInfo;
 		private readonly DecompileRun currentDecompileRun;
 
 		public DecompilerContext Context => this.context;
@@ -236,16 +237,19 @@ namespace ICSharpCode.Decompiler.CSharp
 		{
 			TypeDef oldCurrentType = context.CurrentType;
 			var oldResolveContext = currentTypeResolveContext;
+			var oldCodeMappingInfo = currentCodeMappingInfo;
 			context.CurrentType = typeDef;
 
 			var tsTypeDef = typeSystem.MainModule.GetDefinition(typeDef);
 
 			currentTypeResolveContext = currentTypeResolveContext.WithCurrentTypeDefinition(tsTypeDef);
 
+			currentCodeMappingInfo = CSharpDecompiler.GetCodeMappingInfo(typeDef);
+
 			var entityDecl = typeSystemAstBuilder.ConvertEntity(tsTypeDef);
 			if (entityDecl is not TypeDeclaration typeDecl)
 			{
-				RequiredNamespaceCollector.CollectNamespaces(tsTypeDef, typeSystem.MainModule, currentDecompileRun.Namespaces);
+				RequiredNamespaceCollector.CollectNamespaces(tsTypeDef, typeSystem.MainModule, currentDecompileRun.Namespaces, currentCodeMappingInfo);
 				if (entityDecl is DelegateDeclaration dd)
 				{
 					// Fix empty parameter names in delegate declarations
@@ -257,6 +261,7 @@ namespace ICSharpCode.Decompiler.CSharp
 				// e.g. DelegateDeclaration
 				context.CurrentType = oldCurrentType;
 				currentTypeResolveContext = oldResolveContext;
+				currentCodeMappingInfo = oldCodeMappingInfo;
 				return entityDecl;
 			}
 
@@ -432,6 +437,7 @@ namespace ICSharpCode.Decompiler.CSharp
 
 			context.CurrentType = oldCurrentType;
 			currentTypeResolveContext = oldResolveContext;
+			currentCodeMappingInfo = oldCodeMappingInfo;
 			return typeDecl;
 		}
 
@@ -439,7 +445,7 @@ namespace ICSharpCode.Decompiler.CSharp
 		{
 			var tsMethod = typeSystem.MainModule.GetDefinition(methodDef);
 
-			RequiredNamespaceCollector.CollectNamespaces(tsMethod, typeSystem.MainModule, currentDecompileRun.Namespaces);
+			RequiredNamespaceCollector.CollectNamespaces(tsMethod, typeSystem.MainModule, currentDecompileRun.Namespaces, currentCodeMappingInfo);
 
 			var methodDecl = tsMethod.IsAccessor ? typeSystemAstBuilder.ConvertMethod(tsMethod) : typeSystemAstBuilder.ConvertEntity(tsMethod);
 
@@ -643,7 +649,7 @@ namespace ICSharpCode.Decompiler.CSharp
 		{
 			var tsField = typeSystem.MainModule.GetDefinition(fieldDef);
 
-			RequiredNamespaceCollector.CollectNamespaces(tsField, typeSystem.MainModule, currentDecompileRun.Namespaces);
+			RequiredNamespaceCollector.CollectNamespaces(tsField, typeSystem.MainModule, currentDecompileRun.Namespaces, currentCodeMappingInfo);
 
 			if (currentTypeResolveContext.CurrentTypeDefinition!.Kind == TypeKind.Enum && tsField.IsConst) {
 				var enumDec = new EnumMemberDeclaration();
@@ -708,7 +714,7 @@ namespace ICSharpCode.Decompiler.CSharp
 		{
 			var tsProperty = typeSystem.MainModule.GetDefinition(propertyDef);
 
-			RequiredNamespaceCollector.CollectNamespaces(tsProperty, typeSystem.MainModule, currentDecompileRun.Namespaces);
+			RequiredNamespaceCollector.CollectNamespaces(tsProperty, typeSystem.MainModule, currentDecompileRun.Namespaces, currentCodeMappingInfo);
 
 			EntityDeclaration propertyDecl = typeSystemAstBuilder.ConvertEntity(tsProperty);
 			if (tsProperty.IsExplicitInterfaceImplementation && !tsProperty.IsIndexer) {
@@ -766,7 +772,7 @@ namespace ICSharpCode.Decompiler.CSharp
 		{
 			var tsEvent = typeSystem.MainModule.GetDefinition(eventDef);
 
-			RequiredNamespaceCollector.CollectNamespaces(tsEvent, typeSystem.MainModule, currentDecompileRun.Namespaces);
+			RequiredNamespaceCollector.CollectNamespaces(tsEvent, typeSystem.MainModule, currentDecompileRun.Namespaces, currentCodeMappingInfo);
 
 			bool adderHasBody = tsEvent.CanAdd && tsEvent.AddAccessor!.HasBody;
 			bool removerHasBody = tsEvent.CanRemove && tsEvent.RemoveAccessor!.HasBody;

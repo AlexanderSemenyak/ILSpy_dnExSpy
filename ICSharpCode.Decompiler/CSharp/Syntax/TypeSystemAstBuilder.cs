@@ -1290,8 +1290,7 @@ namespace ICSharpCode.Decompiler.CSharp.Syntax
 				}
 				var fields = enumDefinition.Fields
 					.Select(PrepareConstant)
-					.Where(f => f.field != null)
-					.ToArray();
+					.Where(f => f.field != null);
 				Expression negatedExpr = null;
 				foreach (var (fieldValue, field) in fields.OrderByDescending(f => CalculateHammingWeight(unchecked((ulong)f.value))))
 				{

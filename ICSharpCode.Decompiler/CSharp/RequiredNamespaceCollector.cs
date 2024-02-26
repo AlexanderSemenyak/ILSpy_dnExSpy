@@ -35,18 +35,6 @@ namespace ICSharpCode.Decompiler.CSharp
 			}
 		}
 
-		public static void CollectAttributeNamespaces(MetadataModule module, HashSet<string> namespaces)
-		{
-			var collector = new RequiredNamespaceCollector(namespaces);
-
-			foreach (var type in module.TypeDefinitions)
-			{
-				collector.CollectNamespaces(type, module, (CodeMappingInfo)null);
-			}
-			collector.HandleAttributes(module.GetAssemblyAttributes());
-			collector.HandleAttributes(module.GetModuleAttributes());
-		}
-
 		public static void CollectAttributeNamespacesOnlyModule(MetadataModule module, HashSet<string> namespaces)
 		{
 			var collector = new RequiredNamespaceCollector(namespaces);
@@ -65,10 +53,10 @@ namespace ICSharpCode.Decompiler.CSharp
 			collector.CollectNamespacesOnlyType(entity);
 		}
 
-		public static void CollectNamespaces(IEntity entity, MetadataModule module, HashSet<string> namespaces)
+		public static void CollectNamespaces(IEntity entity, MetadataModule module, HashSet<string> namespaces, CodeMappingInfo mappingInfo = null)
 		{
 			var collector = new RequiredNamespaceCollector(namespaces);
-			collector.CollectNamespaces(entity, module);
+			collector.CollectNamespaces(entity, module, mappingInfo);
 		}
 
 		void CollectNamespacesOnlyType(ITypeDefinition entity)
@@ -89,7 +77,7 @@ namespace ICSharpCode.Decompiler.CSharp
 			if (entity == null || entity.MetadataToken is null)
 				return;
 			if (mappingInfo == null && entity.MetadataToken is IMemberDef def)
-				mappingInfo = CSharpDecompiler.GetCodeMappingInfo(entity.ParentModule.PEFile, def);
+				mappingInfo = CSharpDecompiler.GetCodeMappingInfo(def.DeclaringType ?? def as TypeDef);
 			switch (entity) {
 				case ITypeDefinition td:
 					namespaces.Add(td.Namespace);
@@ -131,21 +119,40 @@ namespace ICSharpCode.Decompiler.CSharp
 					CollectNamespacesForTypeReference(field.ReturnType);
 					break;
 				case IMethod method:
-					var parts = mappingInfo.GetMethodParts((MethodDef)method.MetadataToken).ToList();
-					foreach (var part in parts) {
-						var partMethod = module.ResolveMethod(part, genericContext);
-						HandleAttributes(partMethod.GetAttributes());
-						HandleAttributes(partMethod.GetReturnTypeAttributes());
-						CollectNamespacesForTypeReference(partMethod.ReturnType);
-						foreach (var param in partMethod.Parameters)
+					if (mappingInfo is null)
+					{
+						var part = (MethodDef)method.MetadataToken;
+						HandleAttributes(method.GetAttributes());
+						HandleAttributes(method.GetReturnTypeAttributes());
+						CollectNamespacesForTypeReference(method.ReturnType);
+						foreach (var param in method.Parameters)
 						{
 							HandleAttributes(param.GetAttributes());
 							CollectNamespacesForTypeReference(param.Type);
 						}
-						HandleTypeParameters(partMethod.TypeParameters);
+						HandleTypeParameters(method.TypeParameters);
 						HandleOverrides(part.Overrides, module);
 						if (part.HasBody)
 							CollectNamespacesFromMethodBody(part.Body, module);
+					}
+					else
+					{
+						var parts = mappingInfo.GetMethodParts((MethodDef)method.MetadataToken).ToList();
+						foreach (var part in parts) {
+							var partMethod = module.ResolveMethod(part, genericContext);
+							HandleAttributes(partMethod.GetAttributes());
+							HandleAttributes(partMethod.GetReturnTypeAttributes());
+							CollectNamespacesForTypeReference(partMethod.ReturnType);
+							foreach (var param in partMethod.Parameters)
+							{
+								HandleAttributes(param.GetAttributes());
+								CollectNamespacesForTypeReference(param.Type);
+							}
+							HandleTypeParameters(partMethod.TypeParameters);
+							HandleOverrides(part.Overrides, module);
+							if (part.HasBody)
+								CollectNamespacesFromMethodBody(part.Body, module);
+						}
 					}
 					break;
 				case IProperty property:
@@ -179,7 +186,6 @@ namespace ICSharpCode.Decompiler.CSharp
 			switch (type)
 			{
 				case ParameterizedType parameterizedType:
-					namespaces.Add(parameterizedType.Namespace);
 					CollectNamespacesForTypeReference(parameterizedType.GenericType);
 					foreach (var arg in parameterizedType.TypeArguments)
 						CollectNamespacesForTypeReference(arg);

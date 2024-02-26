@@ -607,21 +607,20 @@ namespace ICSharpCode.Decompiler.CSharp
 		}
 
 		/// <summary>
-		/// Determines the "code-mappings" for a given TypeDef or MethodDef. See <see cref="CodeMappingInfo"/> for more information.
+		/// Determines the "code-mappings" for a given TypeDef. See <see cref="CodeMappingInfo"/> for more information.
 		/// </summary>
-		public static CodeMappingInfo GetCodeMappingInfo(PEFile module, IMemberDef member)
+		public static CodeMappingInfo GetCodeMappingInfo(TypeDef declaringType)
 		{
-			TypeDef declaringType = member.DeclaringType;
-			if (declaringType is null && member is TypeDef def) {
-				declaringType = def;
-			}
+			var info = new CodeMappingInfo(declaringType);
 
-			var info = new CodeMappingInfo(module, declaringType);
-
+			var connectedMethods = new Queue<MethodDef>();
+			var processedMethods = new HashSet<MethodDef>();
+			var processedNestedTypes = new HashSet<TypeDef>();
 			foreach (var method in declaringType.Methods) {
-				var connectedMethods = new Queue<MethodDef>();
-				var processedMethods = new HashSet<MethodDef>();
-				var processedNestedTypes = new HashSet<TypeDef>();
+				connectedMethods.Clear();
+				processedMethods.Clear();
+				processedNestedTypes.Clear();
+
 				connectedMethods.Enqueue(method);
 
 				while (connectedMethods.Count > 0) {
@@ -741,7 +740,7 @@ namespace ICSharpCode.Decompiler.CSharp
 			TypeDef ExtractDeclaringType(MemberRef memberRef)
 			{
 				switch (memberRef.Class) {
-					case TypeRef _:
+					case TypeRef:
 						// This should never happen in normal code, because we are looking at nested types
 						// If it's not a nested type, it can't be a reference to the state machine or lambda anyway, and
 						// those should be either TypeDef or TypeSpec.
