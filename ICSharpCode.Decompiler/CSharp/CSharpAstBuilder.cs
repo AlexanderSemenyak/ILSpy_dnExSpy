@@ -85,9 +85,9 @@ namespace ICSharpCode.Decompiler.CSharp
 			this.methodBodyTasks.Clear();
 		}
 
-		public void InitializeTypeSystem()
+		public void InitializeTypeSystem(IDecompilerTypeSystem typeSystem)
 		{
-			typeSystem = new DecompilerTypeSystem(new PEFile(context.CurrentModule), context.Settings);
+			this.typeSystem = typeSystem;
 
 			typeSystemAstBuilder.AlwaysUseShortTypeNames = !context.Settings.FullyQualifyAllTypes;
 			typeSystemAstBuilder.UseNullableSpecifierForValueTypes = context.Settings.LiftNullables;
