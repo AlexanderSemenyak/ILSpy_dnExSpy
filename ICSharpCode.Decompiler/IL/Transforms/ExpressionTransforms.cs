@@ -729,15 +729,22 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 						throw new InvalidOperationException();
 					}
 
-					if (context.CalculateILSpans)
-						block.AddSelfILSpans(section.Body.ILSpans);
 				}
 				else
 				{
 					section.Body = ((StLoc)block.Instructions[0]).Value;
+					if (context.CalculateILSpans)
+					{
+						block.Instructions[0].AddSelfILSpans(section.Body.ILSpans);
+						for (int i = 1; i < block.Instructions.Count; i++)
+							block.Instructions[i].AddSelfAndChildrenRecursiveILSpans(section.Body.ILSpans);
+					}
 				}
 				if (context.CalculateILSpans)
+				{
+					block.AddSelfILSpans(section.Body.ILSpans);
 					br.AddSelfILSpans(section.Body.ILSpans);
+				}
 			}
 			if (resultVariable != null)
 			{

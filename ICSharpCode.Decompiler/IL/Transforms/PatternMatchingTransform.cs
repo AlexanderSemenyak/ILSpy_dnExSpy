@@ -19,9 +19,12 @@
 #nullable enable
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
+
+using dnSpy.Contracts.Decompiler;
 
 using ICSharpCode.Decompiler.IL.ControlFlow;
 using ICSharpCode.Decompiler.TypeSystem;
@@ -273,18 +276,7 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 					}
 					context.Step("Move property sub pattern", condition);
 					if (context.CalculateILSpans)
-					{
-						falseInst.AddSelfAndChildrenRecursiveILSpans(condition.ILSpans);
-						if (block.Instructions.Count == 2)
-							condition.ILSpans.AddRange(block.Instructions[0].ILSpans);
-						else
-						{
-							condition.ILSpans.AddRange(block.Instructions[0].ILSpans);
-							var ifInst = (IfInstruction)block.Instructions[1];
-							condition.ILSpans.AddRange(ifInst.ILSpans);
-							condition.ILSpans.AddRange(ifInst.Condition.ILSpans);
-						}
-					}
+						AddILSpans();
 					if (negate)
 					{
 						condition = Comp.LogicNot(condition);
@@ -302,18 +294,7 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 						return null;
 					}
 					if (context.CalculateILSpans)
-					{
-						falseInst.AddSelfAndChildrenRecursiveILSpans(condition.ILSpans);
-						if (block.Instructions.Count == 2)
-							condition.ILSpans.AddRange(block.Instructions[0].ILSpans);
-						else
-						{
-							condition.ILSpans.AddRange(block.Instructions[0].ILSpans);
-							var ifInst = (IfInstruction)block.Instructions[1];
-							condition.ILSpans.AddRange(ifInst.ILSpans);
-							condition.ILSpans.AddRange(ifInst.Condition.ILSpans);
-						}
-					}
+						AddILSpans();
 					context.Step("Sub pattern: implicit != 0", condition);
 					parentPattern.SubPatterns.Add(new Comp(negate ? ComparisonKind.Equality : ComparisonKind.Inequality,
 						Sign.None, condition, new LdcI4(0)));
@@ -325,6 +306,19 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 				block.Instructions.Clear();
 				block.Instructions.Add(trueInst);
 				return trueInst;
+
+				void AddILSpans() {
+					falseInst.AddSelfAndChildrenRecursiveILSpans(condition.ILSpans);
+					if (block.Instructions.Count == 2)
+						condition.ILSpans.AddRange(block.Instructions[0].ILSpans);
+					else
+					{
+						condition.ILSpans.AddRange(block.Instructions[0].GetSelfAndChildrenRecursiveILSpans(x => x == condition));
+						var ifInst = (IfInstruction)block.Instructions[1];
+						condition.ILSpans.AddRange(ifInst.ILSpans);
+						ifInst.Condition.AddSelfAndChildrenRecursiveILSpans(condition.ILSpans);
+					}
+				}
 			}
 			else if (block.Instructions[0].MatchStLoc(out var targetVariable, out var operand))
 			{
@@ -567,10 +561,10 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 						comp.ILSpans.AddRange(trueBlock.Instructions[0].ILSpans);
 					else
 					{
-						comp.ILSpans.AddRange(trueBlock.Instructions[0].ILSpans);
+						condition.ILSpans.AddRange(trueBlock.Instructions[0].GetSelfAndChildrenRecursiveILSpans(x => x == condition));
 						var ifInst = (IfInstruction)trueBlock.Instructions[1];
 						comp.ILSpans.AddRange(ifInst.ILSpans);
-						comp.ILSpans.AddRange(ifInst.Condition.ILSpans);
+						ifInst.Condition.AddSelfAndChildrenRecursiveILSpans(condition.ILSpans);
 					}
 
 					falseInst.AddSelfAndChildrenRecursiveILSpans(comp.ILSpans);

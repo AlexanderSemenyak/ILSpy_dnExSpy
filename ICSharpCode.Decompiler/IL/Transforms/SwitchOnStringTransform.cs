@@ -340,6 +340,13 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 			var stringToInt = new StringToInt(switchValue, values.Skip(offset).Select(item => item.Item1).ToArray(), context.TypeSystem.FindType(KnownTypeCode.String));
 			var inst = new SwitchInstruction(stringToInt);
 			inst.Sections.AddRange(sections);
+
+			if (context.CalculateILSpans)
+			{
+				foreach (Block caseBlock in caseBlocks)
+					caseBlock.AddSelfAndChildrenRecursiveILSpans(inst.ILSpans);
+			}
+
 			if (removeExtraLoad)
 			{
 				inst.AddILRange(instructions[i - 2]);
@@ -422,9 +429,10 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 			// each case starts with:
 			// if (comp(ldloc switchValueVar == ldstr "case label")) br caseBlock
 			// br currentCaseBlock
-
+			List<Block> caseBlocks = new List<Block>();
 			while (currentCaseBlock.Instructions[conditionOffset].MatchIfInstruction(out condition, out var caseBlockJump))
 			{
+				caseBlocks.Add(currentCaseBlock);
 				if (currentCaseBlock.Instructions.Count != conditionOffset + 2)
 					break;
 				if (!condition.MatchCompEquals(out var left, out var right))
@@ -458,6 +466,14 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 			inst.Sections.AddRange(sections);
 
 			inst.AddILRange(instructions[i - 1]);
+			if (context.CalculateILSpans)
+			{
+				instructions[i - 1].AddSelfILSpans(inst.ILSpans);
+				instructions[i].AddSelfAndChildrenRecursiveILSpans(inst.ILSpans);
+				instructions[i + 1].AddSelfILSpans(inst.ILSpans);
+				foreach (Block caseBlock in caseBlocks)
+					caseBlock.AddSelfAndChildrenRecursiveILSpans(inst.ILSpans);
+			}
 			instructions[i].ReplaceWith(inst);
 			instructions.RemoveAt(i + 1);
 			instructions.RemoveAt(i - 1);
@@ -677,6 +693,24 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 			var stringToInt = new StringToInt(switchValue, stringValues, switchValueVar.Type);
 			var inst = new SwitchInstruction(stringToInt);
 			inst.Sections.AddRange(sections);
+
+			if (context.CalculateILSpans)
+			{
+				instructions[i].AddSelfAndChildrenRecursiveILSpans(inst.ILSpans);
+				instructions[i + 1].AddSelfAndChildrenRecursiveILSpans(inst.ILSpans);
+				if (!keepAssignmentBefore)
+					instructions[i - 1].AddSelfAndChildrenRecursiveILSpans(inst.ILSpans);
+				nullValueCaseBlock?.AddSelfAndChildrenRecursiveILSpans(inst.ILSpans);
+				nextBlock.AddSelfAndChildrenRecursiveILSpans(inst.ILSpans);
+				dictInitBlock.AddSelfAndChildrenRecursiveILSpans(inst.ILSpans);
+				tryGetValueBlock.AddSelfAndChildrenRecursiveILSpans(inst.ILSpans);
+				if (switchBlock.Instructions[0] is SwitchInstruction sw)
+				{
+					sw.AddSelfILSpans(inst.ILSpans);
+					sw.Value.AddSelfAndChildrenRecursiveILSpans(inst.ILSpans);
+				}
+			}
+
 			instructions[i + 1].ReplaceWith(inst);
 			if (keepAssignmentBefore)
 			{
@@ -926,6 +960,14 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 			var inst = new SwitchInstruction(stringToInt);
 			inst.Sections.AddRange(sections);
 			inst.AddILRange(block.Instructions[i]);
+			if (context.CalculateILSpans)
+			{
+				block.Instructions[i].AddSelfILSpans(inst.ILSpans);
+				for (int j = 0; j < 3; j++)
+					block.Instructions[i + 1 + j].AddSelfAndChildrenRecursiveILSpans(inst.ILSpans);
+				getItemBlock.AddSelfAndChildrenRecursiveILSpans(inst.ILSpans);
+				switchBlock.AddSelfAndChildrenRecursiveILSpans(inst.ILSpans);
+			}
 			block.Instructions[i].ReplaceWith(inst);
 			block.Instructions.RemoveRange(i + 1, 3);
 			info.Transformed = true;
@@ -1068,10 +1110,13 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 			}
 
 			context.Step(nameof(MatchRoslynSwitchOnString), switchValueLoad);
+			Block oldDefaultBlock = null;
 			if (exitOrDefaultBlock != null)
 			{
 				// change TargetBlock in case it was modified by IsNullCheckInDefaultBlock()
-				((Branch)defaultSection.Body).TargetBlock = exitOrDefaultBlock;
+				Branch branch = (Branch)defaultSection.Body;
+				oldDefaultBlock = branch.TargetBlock;
+				branch.TargetBlock = exitOrDefaultBlock;
 			}
 			ILInstruction switchValueInst = switchValueLoad;
 			if (instructions == switchBlockInstructions)
@@ -1095,11 +1140,23 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 				var newSwitch = ReplaceWithSwitchInstruction(i);
 				// remove old switch instruction
 				newSwitch.AddILRange(instructions[i + 1]);
+				if (context.CalculateILSpans)
+				{
+					instructions[i + 1].AddSelfAndChildrenRecursiveILSpans(newSwitch.ILSpans);
+					foreach (var section in switchInst.Sections) {
+						if (!section.Body.MatchBranch(out Block target))
+							continue;
+						target.AddSelfAndChildrenRecursiveILSpans(newSwitch.ILSpans);
+					}
+					oldDefaultBlock?.AddSelfAndChildrenRecursiveILSpans(newSwitch.ILSpans);
+				}
 				instructions.RemoveAt(i + 1);
 				// remove extra assignment
 				if (!keepAssignmentBefore)
 				{
 					newSwitch.AddILRange(instructions[i - 1]);
+					if (context.CalculateILSpans)
+						instructions[i - 1].AddSelfILSpans(newSwitch.ILSpans);
 					instructions.RemoveRange(i - 1, 1);
 					i -= 1;
 				}
@@ -1122,11 +1179,33 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 				newSwitch.AddILRange(switchInst);
 				// remove jump instruction to switch block
 				newSwitch.AddILRange(instructions[i + 1]);
+				if (context.CalculateILSpans)
+				{
+					if (instForNullCheck is not null)
+					{
+						foreach (var instr in switchBlockInstructions)
+							instr.AddSelfAndChildrenRecursiveILSpans(newSwitch.ILSpans);
+					}
+					instructions[i + 1].AddSelfAndChildrenRecursiveILSpans(newSwitch.ILSpans);
+					foreach (var section in switchInst.Sections) {
+						if (!section.Body.MatchBranch(out Block target))
+							continue;
+						if (MatchRoslynEmptyStringCaseBlockHead(target, switchValueLoad.Variable, out _, out _))
+							((Branch)target.Instructions[1]).TargetBlock.AddSelfAndChildrenRecursiveILSpans(newSwitch.ILSpans);
+						target.AddSelfAndChildrenRecursiveILSpans(newSwitch.ILSpans);
+					}
+					oldDefaultBlock?.AddSelfAndChildrenRecursiveILSpans(newSwitch.ILSpans);
+				}
 				instructions.RemoveAt(i + 1);
 				// remove extra assignment
 				if (!keepAssignmentBefore)
 				{
 					newSwitch.AddILRange(instructions[i - 2]);
+					if (context.CalculateILSpans)
+					{
+						instructions[i - 2].AddSelfILSpans(newSwitch.ILSpans);
+						instructions[i - 1].AddSelfAndChildrenRecursiveILSpans(newSwitch.ILSpans);
+					}
 					instructions.RemoveRange(i - 2, 2);
 					i -= 2;
 				}
@@ -1148,6 +1227,8 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 				var newSwitch = new SwitchInstruction(new StringToInt(switchValueInst, values, switchValueLoad.Variable.Type));
 				newSwitch.Sections.AddRange(sections);
 				newSwitch.Sections.Add(new SwitchSection { Labels = defaultLabel, Body = defaultSection.Body });
+				if (context.CalculateILSpans)
+					newSwitch.ILSpans.AddRange(instructions[offset].GetSelfAndChildrenRecursiveILSpans(x => x == switchValueInst));
 				instructions[offset].ReplaceWith(newSwitch);
 				return newSwitch;
 			}
@@ -1195,6 +1276,7 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 				switchOnLengthBlockStartOffset = i;
 			}
 			Block defaultCase = null;
+			List<Block> opEqualityBlocks = new List<Block>();
 			if (!MatchSwitchOnLengthBlock(ref switchValueVar, switchOnLengthBlock, switchOnLengthBlockStartOffset, out var blocksByLength))
 				return false;
 			List<(string, ILInstruction)> stringValues = new();
@@ -1275,6 +1357,22 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 			if (nullCase != null)
 			{
 				newSwitch.AddILRange(instructions[i + 1]);
+			}
+			if (context.CalculateILSpans)
+			{
+				instructions[i].AddSelfAndChildrenRecursiveILSpans(newSwitch.ILSpans);
+				for (int j = 0; j < instructions.Count - (i + 1); j++)
+					instructions[i + 1 + j].AddSelfAndChildrenRecursiveILSpans(newSwitch.ILSpans);
+				switchOnLengthBlock.AddSelfAndChildrenRecursiveILSpans(newSwitch.ILSpans);
+				foreach ((_, Block bl) in blocksByLength)
+				{
+					if (bl.Instructions.Count > 2 && bl.Instructions.Last() is Branch br)
+						br.TargetBlock.AddSelfAndChildrenRecursiveILSpans(newSwitch.ILSpans);
+					bl.AddSelfAndChildrenRecursiveILSpans(newSwitch.ILSpans);
+				}
+				foreach (Block bl in opEqualityBlocks)
+					bl.AddSelfAndChildrenRecursiveILSpans(newSwitch.ILSpans);
+				nullCase?.AddSelfAndChildrenRecursiveILSpans(newSwitch.ILSpans);
 			}
 			instructions[i] = newSwitch;
 			instructions.RemoveRange(i + 1, instructions.Count - (i + 1));
@@ -1369,6 +1467,7 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 						{
 							while (MatchRoslynCaseBlockHead(targetBlock, switchValueVar, out var bodyOrLeave, out var exit, out var stringValue, out _))
 							{
+								opEqualityBlocks.Add(targetBlock);
 								if (stringValue.Length != length || stringValue[index] != ch)
 									return false;
 								results ??= new();

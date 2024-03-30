@@ -34,19 +34,19 @@ namespace ICSharpCode.Decompiler
 	{
 		public HashSet<string> DefinedSymbols { get; } = new HashSet<string>();
 		public HashSet<string> Namespaces { get; } = new HashSet<string>();
-		public CancellationToken CancellationToken { get; set; }
-		public DecompilerSettings Settings { get; }
+		public CancellationToken CancellationToken => Context.CancellationToken;
+		public DecompilerSettings Settings => Context.Settings;
 		public IDocumentationProvider DocumentationProvider { get; set; }
 		public Dictionary<ITypeDefinition, RecordDecompiler> RecordDecompilers { get; } = new Dictionary<ITypeDefinition, RecordDecompiler>();
 		public Dictionary<ITypeDefinition, bool> TypeHierarchyIsKnown { get; } = new();
 
 		public UsingScope UsingScope => CreateUsingScope(Namespaces);
 
-		public DecompilerContext Context { get; set; }
+		public DecompilerContext Context { get; }
 
-		public DecompileRun(DecompilerSettings settings)
+		public DecompileRun(DecompilerContext context)
 		{
-			this.Settings = settings ?? throw new ArgumentNullException(nameof(settings));
+			this.Context = context ?? throw new ArgumentNullException(nameof(context));
 		}
 
 		UsingScope CreateUsingScope(HashSet<string> requiredNamespacesSuperset)

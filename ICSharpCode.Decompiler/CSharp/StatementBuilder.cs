@@ -1587,6 +1587,7 @@ namespace ICSharpCode.Decompiler.CSharp
 					inst
 				)
 			);
+			stmt.Expression.AddAnnotation(inst.ILSpans);
 			stmt.InsertChildAfter(null, new Comment(" IL initblk instruction"), Roles.Comment);
 			return stmt.WithILInstruction(inst);
 		}
@@ -1605,6 +1606,7 @@ namespace ICSharpCode.Decompiler.CSharp
 					inst
 				)
 			);
+			stmt.Expression.AddAnnotation(inst.ILSpans);
 			stmt.InsertChildAfter(null, new Comment(" IL cpblk instruction"), Roles.Comment);
 			return stmt.WithILInstruction(inst);
 		}

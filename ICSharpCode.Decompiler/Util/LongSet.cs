@@ -107,7 +107,7 @@ namespace ICSharpCode.Decompiler.Util
 		/// Note: for <c>LongSet.Universe</c>, the number of values does not fit into <c>ulong</c>.
 		/// Instead, this property returns the off-by-one value <c>ulong.MaxValue</c> to avoid overflow.
 		/// </summary>
-		public ulong Count()
+		public readonly ulong Count()
 		{
 			unchecked
 			{

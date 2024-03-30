@@ -484,9 +484,8 @@ namespace ICSharpCode.Decompiler.CSharp
 
 		DecompileRun CreateDecompileRun()
 		{
-			return new DecompileRun(settings) {
-				DocumentationProvider = DocumentationProvider ?? CreateDefaultDocumentationProvider(),
-				CancellationToken = CancellationToken
+			return new DecompileRun(new DecompilerContext(settings.SettingsVersion, metadata) { Settings = settings, CancellationToken = CancellationToken }) {
+				DocumentationProvider = DocumentationProvider ?? CreateDefaultDocumentationProvider()
 			};
 		}
 
@@ -525,9 +524,8 @@ namespace ICSharpCode.Decompiler.CSharp
 		public SyntaxTree DecompileAssembly()
 		{
 			var decompilationContext = new SimpleTypeResolveContext(typeSystem.MainModule);
-			var decompileRun = new DecompileRun(settings) {
-				CancellationToken = CancellationToken
-			};
+			var decompileRun = new DecompileRun(new DecompilerContext(settings.SettingsVersion, metadata)
+				{ Settings = settings, CancellationToken = CancellationToken });
 			syntaxTree = new SyntaxTree();
 			RequiredNamespaceCollector.CollectAttributeNamespacesOnlyAssembly(module, decompileRun.Namespaces);
 			DoDecompileAssemblyAttributes(module.metadata.Assembly, decompileRun, decompilationContext, syntaxTree);

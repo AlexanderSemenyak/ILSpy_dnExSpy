@@ -193,6 +193,8 @@ namespace ICSharpCode.Decompiler.IL.ControlFlow
 				{
 					Debug.Assert(block.Instructions.SecondToLastOrDefault() is IfInstruction);
 					// Remove branch/leave after if; it's getting moved into a section.
+					if (context.CalculateILSpans)
+						block.Instructions.Last().AddSelfILSpans(sw.ILSpans);
 					block.Instructions.RemoveAt(block.Instructions.Count - 1);
 				}
 				sw.AddILRange(block.Instructions[block.Instructions.Count - 1]);
@@ -243,6 +245,8 @@ namespace ICSharpCode.Decompiler.IL.ControlFlow
 						{
 							primarySection.Labels = primarySection.Labels.UnionWith(section.Labels);
 							primarySection.HasNullLabel |= section.HasNullLabel;
+							if (context.CalculateILSpans)
+								section.Body.AddSelfAndChildrenRecursiveILSpans(((Branch)primarySection.Body).ILSpans);
 							return true; // remove this section
 						}
 						else
@@ -267,7 +271,13 @@ namespace ICSharpCode.Decompiler.IL.ControlFlow
 				}).ThenBy(s => s.Labels.Values.FirstOrDefault()));
 			}
 			else
-				sw.Sections.ReplaceList(sw.Sections.OrderBy(s => s.Labels.Values.FirstOrDefault()));
+			{
+				var sections = sw.Sections.OrderBy(s => s.Labels.Values.FirstOrDefault()).ToList();
+				var def = sw.GetDefaultSection();
+				sections.Remove(def);
+				sections.Add(def);
+				sw.Sections.ReplaceList(sections);
+			}
 		}
 
 		static void AdjustLabels(SwitchInstruction sw, ILTransformContext context)

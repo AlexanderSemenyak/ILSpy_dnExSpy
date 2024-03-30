@@ -68,7 +68,7 @@ namespace ICSharpCode.Decompiler.CSharp
 				AddResolveResultAnnotations = true
 			};
 			this.currentTypeResolveContext = null;
-			this.currentDecompileRun = new DecompileRun(context.Settings) { CancellationToken = context.CancellationToken, Context = context };
+			this.currentDecompileRun = new DecompileRun(context);
 		}
 
 		public void Reset()

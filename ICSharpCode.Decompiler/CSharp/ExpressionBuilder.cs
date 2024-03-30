@@ -82,6 +82,7 @@ namespace ICSharpCode.Decompiler.CSharp
 		internal readonly ILFunction currentFunction;
 		internal readonly ICompilation compilation;
 		internal readonly CSharpResolver resolver;
+		internal readonly MemberLookup memberLookup;
 		internal readonly TypeSystemAstBuilder astBuilder;
 		internal readonly TypeInference typeInference;
 		internal readonly DecompilerSettings settings;
@@ -100,6 +101,7 @@ namespace ICSharpCode.Decompiler.CSharp
 			this.cancellationToken = cancellationToken;
 			this.compilation = decompilationContext.Compilation;
 			this.resolver = new CSharpResolver(new CSharpTypeResolveContext(compilation.MainModule, null, decompilationContext.CurrentTypeDefinition, decompilationContext.CurrentMember));
+			this.memberLookup = new MemberLookup(decompilationContext.CurrentTypeDefinition, compilation.MainModule);
 			this.astBuilder = new TypeSystemAstBuilder(resolver);
 			this.astBuilder.AlwaysUseShortTypeNames = !settings.FullyQualifyAllTypes;
 			this.astBuilder.AddResolveResultAnnotations = true;
@@ -169,7 +171,8 @@ namespace ICSharpCode.Decompiler.CSharp
 				TypeHint = typeHint ?? SpecialType.UnknownType
 			};
 			var cexpr = inst.AcceptVisitor(this, context);
-			cexpr.Expression.AddAnnotation(inst.GetSelfAndChildrenRecursiveILSpans_OrderAndJoin());
+			if (cexpr.Expression is not SwitchExpression)
+				cexpr.Expression.AddAnnotation(inst.GetSelfAndChildrenRecursiveILSpans_OrderAndJoin());
 #if DEBUG
 			if (inst.ResultType != StackType.Void && cexpr.Type.Kind != TypeKind.Unknown && inst.ResultType != StackType.Unknown && cexpr.Type.Kind != TypeKind.None)
 			{
@@ -348,8 +351,7 @@ namespace ICSharpCode.Decompiler.CSharp
 				}
 				else
 				{
-					var lookup = new MemberLookup(resolver.CurrentTypeDefinition, resolver.CurrentTypeDefinition.ParentModule);
-					result = lookup.Lookup(target.ResolveResult, field.Name, EmptyList<IType>.Instance, isInvocation: false) as MemberResolveResult;
+					result = memberLookup.Lookup(target.ResolveResult, field.Name, EmptyList<IType>.Instance, isInvocation: false) as MemberResolveResult;
 				}
 				return result == null || result.IsError || !result.Member.Equals(field, NormalizeTypeVisitor.TypeErasure);
 			}
@@ -1465,15 +1467,24 @@ namespace ICSharpCode.Decompiler.CSharp
 		{
 			IType unsafeType = compilation.FindType(KnownTypeCode.Unsafe);
 
-			var candidates = unsafeType.GetMethods(x =>
-				x.Name == name && x.Parameters.Count == arguments.Length && x.ReturnType.Equals(returnType) &&
-				x.TypeArguments.Count == (typeArguments?.Count ?? 0)).ToArray();
-			var singleCandidate = candidates.Length == 1 ? candidates[0] : null;
+			IMember resolvedMember = null;
+			var rrs = new ResolveResult[arguments.Length];
+			for (int i = 0; i < arguments.Length; i++)
+				rrs[i] = arguments[i].GetResolveResult();
+			IType[] typeArgs = typeArguments?.ToArray() ?? Array.Empty<IType>();
+			var result = memberLookup.Lookup(new TypeResolveResult(unsafeType), name, typeArgs, isInvocation: true);
+			if (result is MethodGroupResolveResult mgrr)
+			{
+				var or = mgrr.PerformOverloadResolution(resolver.Compilation, rrs, allowExtensionMethods: false,
+					conversions: resolver.conversions);
+				if (or.BestCandidateErrors == OverloadResolutionErrors.None && !or.IsAmbiguous)
+					resolvedMember = or.BestCandidate?.MemberDefinition;
+			}
 
 			var target = new MemberReferenceExpression {
 				Target = new TypeReferenceExpression(astBuilder.ConvertType(unsafeType)),
-				MemberNameToken = Identifier.Create(name).WithAnnotation(singleCandidate?.MetadataToken)
-			}.WithAnnotation(singleCandidate?.MetadataToken);
+				MemberNameToken = Identifier.Create(name).WithAnnotation(resolvedMember?.MetadataToken ?? BoxedTextColor.StaticMethod)
+			};
 
 			if (typeArguments != null)
 			{
@@ -1635,13 +1646,8 @@ namespace ICSharpCode.Decompiler.CSharp
 					// unary minus is supported on signed int, nint and long, and on the small integer types (since they promote to int)
 					var uoe = new UnaryOperatorExpression(UnaryOperatorType.Minus, right.Expression);
 					uoe.AddAnnotation(inst.CheckForOverflow ? AddCheckedBlocks.CheckedAnnotation : AddCheckedBlocks.UncheckedAnnotation);
-					var resultType = FindArithmeticType(inst.RightInputType, Sign.Signed);
-					if (inst.IsLifted)
-						resultType = NullableType.Create(compilation, resultType);
-					return uoe.WithILInstruction(inst).WithRR(new OperatorResolveResult(
-						resultType,
-						inst.CheckForOverflow ? ExpressionType.NegateChecked : ExpressionType.Negate,
-						right.ResolveResult));
+					return uoe.WithILInstruction(inst)
+						.WithRR(resolverWithOverflowCheck.ResolveUnaryOperator(UnaryOperatorType.Minus, right.ResolveResult));
 				}
 			}
 			if (op.IsBitwise()
@@ -4080,6 +4086,7 @@ namespace ICSharpCode.Decompiler.CSharp
 			SwitchExpression switchExpr = new SwitchExpression();
 			switchExpr.Expression = value;
 			switchExpr.AddAnnotation(inst.EndILSpans);
+			switchExpr.AddAnnotation(inst.ILSpans);
 			IType resultType;
 			if (context.TypeHint.Kind != TypeKind.Unknown && context.TypeHint.GetStackType() == inst.ResultType)
 			{
@@ -4242,8 +4249,7 @@ namespace ICSharpCode.Decompiler.CSharp
 		{
 			var target = TranslateDynamicTarget(inst.Target, inst.TargetArgumentInfo);
 
-			var lookup = new MemberLookup(resolver.CurrentTypeDefinition, resolver.CurrentTypeDefinition.ParentModule);
-			var result = lookup.Lookup(target.ResolveResult, inst.Name, EmptyList<IType>.Instance, isInvocation: false) as MemberResolveResult;
+			var result = memberLookup.Lookup(target.ResolveResult, inst.Name, EmptyList<IType>.Instance, isInvocation: false) as MemberResolveResult;
 			IMember resolvedMember = result?.Member.MemberDefinition;
 
 			return new MemberReferenceExpression {
@@ -4267,9 +4273,6 @@ namespace ICSharpCode.Decompiler.CSharp
 			var target = TranslateDynamicTarget(inst.Arguments[0], inst.ArgumentInfo[0]);
 			var arguments = TranslateDynamicArguments(inst.Arguments.Skip(1), inst.ArgumentInfo.Skip(1)).ToList();
 
-			var or = new OverloadResolution(resolver.Compilation, arguments.Select(x => x.ResolveResult).ToArray(), null,
-				inst.TypeArguments.ToArray(), resolver.conversions);
-
 			var textColor = inst.ArgumentInfo[0].HasFlag(CSharpArgumentInfoFlags.IsStaticType)
 				? BoxedTextColor.StaticMethod
 				: BoxedTextColor.InstanceMethod;
@@ -4278,10 +4281,12 @@ namespace ICSharpCode.Decompiler.CSharp
 			IMember resolvedMember = null;
 			if (inst.BinderFlags.HasFlag(CSharpBinderFlags.InvokeSimpleName) && target.Expression is ThisReferenceExpression)
 			{
-				var result = resolver.ResolveSimpleName(inst.Name, inst.TypeArguments, isInvocationTarget: true) as MethodGroupResolveResult;
-				if (result is not null)
+				var result = resolver.ResolveSimpleName(inst.Name, inst.TypeArguments, isInvocationTarget: true);
+				if (result is MethodGroupResolveResult mgrr)
 				{
-					or.AddMethodLists(result.MethodsGroupedByDeclaringType.ToArray());
+					var or = mgrr.PerformOverloadResolution(resolver.Compilation,
+						arguments.Select(x => x.ResolveResult).ToArray(), allowExtensionMethods: false,
+						conversions: resolver.conversions);
 					if (or.BestCandidateErrors == OverloadResolutionErrors.None && !or.IsAmbiguous)
 						resolvedMember = or.BestCandidate?.MemberDefinition;
 				}
@@ -4290,11 +4295,12 @@ namespace ICSharpCode.Decompiler.CSharp
 			}
 			else
 			{
-				var lookup = new MemberLookup(resolver.CurrentTypeDefinition, resolver.CurrentTypeDefinition.ParentModule);
-				var result = lookup.Lookup(target.ResolveResult, inst.Name, inst.TypeArguments, isInvocation: true) as MethodGroupResolveResult;
-				if (result is not null)
+				var result = memberLookup.Lookup(target.ResolveResult, inst.Name, inst.TypeArguments, true);
+				if (result is MethodGroupResolveResult mgrr)
 				{
-					or.AddMethodLists(result.MethodsGroupedByDeclaringType.ToArray());
+					var or = mgrr.PerformOverloadResolution(resolver.Compilation,
+						arguments.Select(x => x.ResolveResult).ToArray(), allowExtensionMethods: false,
+						conversions: resolver.conversions);
 					if (or.BestCandidateErrors == OverloadResolutionErrors.None && !or.IsAmbiguous)
 						resolvedMember = or.BestCandidate?.MemberDefinition;
 				}
@@ -4416,8 +4422,7 @@ namespace ICSharpCode.Decompiler.CSharp
 			var target = TranslateDynamicTarget(inst.Target, inst.TargetArgumentInfo);
 			var value = TranslateDynamicArgument(inst.Value, inst.ValueArgumentInfo);
 
-			var lookup = new MemberLookup(resolver.CurrentTypeDefinition, resolver.CurrentTypeDefinition.ParentModule);
-			var result = lookup.Lookup(target.ResolveResult, inst.Name, EmptyList<IType>.Instance, isInvocation: false) as MemberResolveResult;
+			var result = memberLookup.Lookup(target.ResolveResult, inst.Name, EmptyList<IType>.Instance, isInvocation: false) as MemberResolveResult;
 			IMember resolvedMember = result?.Member.MemberDefinition;
 
 			var member = new MemberReferenceExpression {
