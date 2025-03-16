@@ -859,7 +859,7 @@ namespace ICSharpCode.Decompiler.CSharp.Transforms
 				return null;
 			foreach (var ev in field.DeclaringType.GetEvents(null, GetMemberOptions.IgnoreInheritedMembers))
 			{
-				if (CSharpAstBuilder.IsEventBackingFieldName(field.Name, ev.Name, out int suffixLength) &&
+				if (CSharpDecompiler.IsEventBackingFieldName(field.Name, ev.Name, out int suffixLength) &&
 				    !Equals(currentMethod.AccessorOwner, ev))
 				{
 					parent.RemoveAnnotations<MemberResolveResult>();
@@ -1012,11 +1012,11 @@ namespace ICSharpCode.Decompiler.CSharp.Transforms
 			switch (fieldExpression)
 			{
 				case IdentifierExpression identifier:
-					if (!CSharpAstBuilder.IsEventBackingFieldName(identifier.Identifier, ev.Name))
+					if (!CSharpDecompiler.IsEventBackingFieldName(identifier.Identifier, ev.Name, out _))
 						return false;
 					break;
 				case MemberReferenceExpression memberRef:
-					if (!CSharpAstBuilder.IsEventBackingFieldName(memberRef.MemberName, ev.Name))
+					if (!CSharpDecompiler.IsEventBackingFieldName(memberRef.MemberName, ev.Name, out _))
 						return false;
 					break;
 				default:

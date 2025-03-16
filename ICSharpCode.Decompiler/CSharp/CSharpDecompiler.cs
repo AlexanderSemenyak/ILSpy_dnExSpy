@@ -268,6 +268,8 @@ namespace ICSharpCode.Decompiler.CSharp
 					return true;
 				if (method.Name == ".ctor" && method.RVA == 0 && method.DeclaringType.IsImport)
 					return true;
+				if (settings.ForceShowAllMembers)
+					return false;
 				if (settings.LocalFunctions && LocalFunctionDecompiler.IsLocalFunctionMethod(null, method))
 					return true;
 				if (settings.AnonymousMethods && method.HasGeneratedName() && method.IsCompilerGenerated())
@@ -278,6 +280,8 @@ namespace ICSharpCode.Decompiler.CSharp
 
 			TypeDef type = member as TypeDef;
 			if (type != null) {
+				if (settings.ForceShowAllMembers)
+					return false;
 				if (type.DeclaringType != null) {
 					if (settings.LocalFunctions && LocalFunctionDecompiler.IsLocalFunctionDisplayClass(null, type))
 						return true;
@@ -305,6 +309,8 @@ namespace ICSharpCode.Decompiler.CSharp
 
 			FieldDef field = member as FieldDef;
 			if (field != null) {
+				if (settings.ForceShowAllMembers)
+					return false;
 				if (field.IsCompilerGenerated()) {
 					if (settings.AnonymousMethods && IsAnonymousMethodCacheField(field))
 						return true;
@@ -384,7 +390,7 @@ namespace ICSharpCode.Decompiler.CSharp
 			if (name.StartsWith("_", StringComparison.Ordinal))
 			{
 				propertyName = name.Substring(1);
-				return field.CustomAttributes.HasKnownAttribute(KnownAttribute.CompilerGenerated);
+				return field.IsCompilerGenerated();
 			}
 			return false;
 		}
@@ -410,7 +416,11 @@ namespace ICSharpCode.Decompiler.CSharp
 
 		static bool IsClosureType(TypeDef type)
 		{
-			if (!type.HasGeneratedName() || !type.IsCompilerGenerated())
+			if (!type.IsCompilerGenerated())
+				return false;
+			if (type.Name.StartsWith("_Closure$__"))
+				return true;
+			if (!type.HasGeneratedName())
 				return false;
 			if (type.Name.Contains("DisplayClass") || type.Name.Contains("AnonStorey")|| type.Name.Contains("Closure$"))
 				return true;
@@ -941,7 +951,7 @@ namespace ICSharpCode.Decompiler.CSharp
 			}
 		}
 
-		Expression ForwardParameter(ParameterDeclaration p)
+		internal static Expression ForwardParameter(ParameterDeclaration p)
 		{
 			switch (p.ParameterModifier)
 			{
@@ -963,7 +973,7 @@ namespace ICSharpCode.Decompiler.CSharp
 		/// Sets new modifier if the member hides some other member from a base type.
 		/// </summary>
 		/// <param name="member">The node of the member which new modifier state should be determined.</param>
-		void SetNewModifier(EntityDeclaration member)
+		internal static void SetNewModifier(EntityDeclaration member)
 		{
 			var entity = (IEntity)member.GetSymbol();
 			var lookup = new MemberLookup(entity.DeclaringTypeDefinition, entity.ParentModule);
@@ -1020,7 +1030,7 @@ namespace ICSharpCode.Decompiler.CSharp
 			}
 		}
 
-		void FixParameterNames(EntityDeclaration entity)
+		internal static void FixParameterNames(EntityDeclaration entity)
 		{
 			int i = 0;
 			foreach (var parameter in entity.GetChildrenByRole(Roles.Parameter))

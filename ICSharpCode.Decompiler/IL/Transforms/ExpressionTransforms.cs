@@ -333,6 +333,8 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 				var replacement = new NullCoalescingInstruction(NullCoalescingKind.NullableWithValueFallback, ldObj, fallback) {
 					UnderlyingResultType = fallback.ResultType
 				};
+				if (context.CalculateILSpans)
+					replacement.ILSpans.AddRange(inst.ILSpans);
 				inst.ReplaceWith(replacement.WithILRange(inst));
 				replacement.AcceptVisitor(this);
 				return;

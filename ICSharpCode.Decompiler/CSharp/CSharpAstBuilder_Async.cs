@@ -70,7 +70,7 @@ namespace ICSharpCode.Decompiler.CSharp
 					if (result.IlFunction is not null)
 					{
 						AddDefinesForConditionalAttributes(result.IlFunction);
-						CleanUpMethodDeclaration(result.MethodNode, result.Body, result.IlFunction);
+						CSharpDecompiler.CleanUpMethodDeclaration(result.MethodNode, result.Body, result.IlFunction);
 					}
 
 					comments.Clear();

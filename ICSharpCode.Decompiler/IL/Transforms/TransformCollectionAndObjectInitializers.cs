@@ -545,7 +545,9 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 
 		public int GetHashCode(ILInstruction obj)
 		{
+			#pragma warning disable CA1065
 			throw new NotSupportedException();
+			#pragma warning restore CA1065
 		}
 	}
 }

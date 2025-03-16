@@ -103,6 +103,8 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 					context.Step("comp(a.GetValueOrDefault() == const) -> comp.lifted(a == const)", comp);
 					comp.LiftingKind = ComparisonLiftingKind.CSharp;
 					comp.Left = new LdObj(arg, ((Call)left).Method.DeclaringType);
+					if (context.CalculateILSpans)
+						comp.Left.ILSpans.AddRange(left.ILSpans);
 				}
 				else if (MatchGetValueOrDefault(right, out arg)
 					&& left.MatchLdcI(out value) && value != 0)
@@ -110,6 +112,8 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 					context.Step("comp(const == a.GetValueOrDefault()) -> comp.lifted(const == a)", comp);
 					comp.LiftingKind = ComparisonLiftingKind.CSharp;
 					comp.Right = new LdObj(arg, ((Call)right).Method.DeclaringType);
+					if (context.CalculateILSpans)
+						comp.Right.ILSpans.AddRange(right.ILSpans);
 				}
 			}
 		}
