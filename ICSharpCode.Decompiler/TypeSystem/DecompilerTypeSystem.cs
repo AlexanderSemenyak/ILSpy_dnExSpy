@@ -112,8 +112,6 @@ namespace ICSharpCode.Decompiler.TypeSystem
 		/// will be reported as custom attribute.
 		/// </summary>
 		ScopedRef = 0x4000,
-		[Obsolete("Use ScopedRef instead")]
-		LifetimeAnnotations = ScopedRef,
 		/// <summary>
 		/// Replace 'IntPtr' types with the 'nint' type even in absence of [NativeIntegerAttribute].
 		/// Note: DecompilerTypeSystem constructor removes this setting from the options if
@@ -121,11 +119,19 @@ namespace ICSharpCode.Decompiler.TypeSystem
 		/// </summary>
 		NativeIntegersWithoutAttribute = 0x8000,
 		/// <summary>
+		/// If this option is active, [RequiresLocationAttribute] on parameters is removed
+		/// and parameters are marked as ref readonly.
+		/// Otherwise, the attribute is preserved but the parameters are not marked
+		/// as if it was a ref parameter without any attributes.
+		/// </summary>
+		RefReadOnlyParameters = 0x10000,
+		/// <summary>
 		/// Default settings: typical options for the decompiler, with all C# languages features enabled.
 		/// </summary>
 		Default = Dynamic | Tuple | ExtensionMethods | DecimalConstants | ReadOnlyStructsAndParameters
 			| RefStructs | UnmanagedConstraints | NullabilityAnnotations | ReadOnlyMethods
 			| NativeIntegers | FunctionPointers | ScopedRef | NativeIntegersWithoutAttribute
+			| RefReadOnlyParameters
 	}
 
 	/// <summary>
@@ -176,19 +182,21 @@ namespace ICSharpCode.Decompiler.TypeSystem
 				typeSystemOptions |= TypeSystemOptions.ScopedRef;
 			if (settings.NumericIntPtr)
 				typeSystemOptions |= TypeSystemOptions.NativeIntegersWithoutAttribute;
+			if (settings.RefReadOnlyParameters)
+				typeSystemOptions |= TypeSystemOptions.RefReadOnlyParameters;
 			return typeSystemOptions;
 		}
 
-		public DecompilerTypeSystem(PEFile mainModule, DecompilerSettings settings)
+		public DecompilerTypeSystem(MetadataFile mainModule, DecompilerSettings settings)
 			: this(mainModule, GetOptions(settings ?? throw new ArgumentNullException(nameof(settings))))
 		{
 		}
 
-		public DecompilerTypeSystem(PEFile mainModule, TypeSystemOptions typeSystemOptions)
+		public DecompilerTypeSystem(MetadataFile mainModule, TypeSystemOptions typeSystemOptions)
 		{
 			if (mainModule == null)
 				throw new ArgumentNullException(nameof(mainModule));
-			maindnlibMod = mainModule.Module;
+			maindnlibMod = mainModule.Metadata;
 			options = typeSystemOptions;
 
 			// if (!(identifier == TargetFrameworkIdentifier.NET && version >= new Version(7, 0)))
@@ -238,7 +246,7 @@ namespace ICSharpCode.Decompiler.TypeSystem
 			lock (dnlibModules) {
 				if (dnlibModules.TryGetValue(module, out var tsMod))
 					return tsMod;
-				tsMod = new PEFile(module).WithOptions(options).Resolve(resolveContext);
+				tsMod = new MetadataFile(module).WithOptions(options).Resolve(resolveContext);
 				modules.Add(tsMod);
 				referencedModules.Add(tsMod);
 				dnlibModules[module] = tsMod;

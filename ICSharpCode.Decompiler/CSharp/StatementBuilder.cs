@@ -54,6 +54,8 @@ namespace ICSharpCode.Decompiler.CSharp
 		internal IType currentResultType;
 		internal bool currentIsIterator;
 
+		internal bool EmitAsRefReadOnly;
+
 		public StatementBuilder(IDecompilerTypeSystem typeSystem, ITypeResolveContext decompilationContext,
 			ILFunction currentFunction, DecompilerSettings settings, DecompileRun decompileRun, StringBuilder sb,
 			CancellationToken cancellationToken)
@@ -222,30 +224,7 @@ namespace ICSharpCode.Decompiler.CSharp
 			var oldCaseLabelMapping = caseLabelMapping;
 			caseLabelMapping = new Dictionary<Block, ConstantResolveResult>();
 
-			TranslatedExpression value;
-			IType type;
-			if (inst.Value is StringToInt strToInt)
-			{
-				value = exprBuilder.Translate(strToInt.Argument)
-					.ConvertTo(
-						strToInt.ExpectedType,
-						exprBuilder,
-						// switch statement does support implicit conversions in general, however, the rules are
-						// not very intuitive and in order to prevent bugs, we emit an explicit cast.
-						allowImplicitConversion: false
-					);
-				type = exprBuilder.compilation.FindType(KnownTypeCode.String);
-			}
-			else
-			{
-				strToInt = null;
-				value = exprBuilder.Translate(inst.Value);
-				if (inst.Type != null)
-				{
-					value = value.ConvertTo(inst.Type, exprBuilder, allowImplicitConversion: true);
-				}
-				type = value.Type;
-			}
+			var (value, type, strToInt) = exprBuilder.TranslateSwitchValue(inst, false);
 
 			IL.SwitchSection defaultSection = inst.GetDefaultSection();
 
@@ -915,6 +894,7 @@ namespace ICSharpCode.Decompiler.CSharp
 						designations.VariableDesignations.Add(ConstructDesignation(subPattern));
 					}
 				}
+				designations.AddAnnotation(matchInstruction);
 				return designations;
 			}
 		}
@@ -1436,6 +1416,32 @@ namespace ICSharpCode.Decompiler.CSharp
 		{
 			var blockStatement = ConvertBlockContainer(new BlockStatement(), container, container.Blocks, isLoop);
 			DeclareLocalFunctions(currentFunction, container, blockStatement);
+			if (currentFunction.Body == container)
+			{
+				if (EmitAsRefReadOnly)
+				{
+					var methodDecl = new MethodDeclaration();
+					if (settings.StaticLocalFunctions)
+					{
+						methodDecl.Modifiers = Modifiers.Static;
+					}
+
+					methodDecl.ReturnType = new ComposedType() { HasReadOnlySpecifier = true, HasRefSpecifier = true, BaseType = new SimpleType("T") };
+					methodDecl.Name = "ILSpyHelper_AsRefReadOnly";
+					methodDecl.TypeParameters.Add(new TypeParameterDeclaration("T"));
+					methodDecl.Parameters.Add(new ParameterDeclaration { ParameterModifier = ReferenceKind.In, Type = new SimpleType("T"), Name = "temp" });
+
+					methodDecl.Body = new BlockStatement();
+					methodDecl.Body.AddChild(new Comment(
+						"ILSpy generated this function to help ensure overload resolution can pick the overload using 'in'"),
+											 Roles.Comment);
+					methodDecl.Body.Add(new ReturnStatement(new DirectionExpression(FieldDirection.Ref, new IdentifierExpression("temp"))));
+
+					blockStatement.Statements.Add(
+						new LocalFunctionDeclarationStatement(methodDecl)
+					);
+				}
+			}
 			return blockStatement;
 		}
 

@@ -209,7 +209,6 @@ namespace ICSharpCode.Decompiler.TypeSystem.Implementation
 					return methods;
 				var methodsCollection = handle.Methods;
 				var methodsList = new List<IMethod>(methodsCollection.Count);
-
 				bool hasDefaultCtor = false;
 				foreach (MethodDef md in methodsCollection)
 				{
@@ -431,13 +430,13 @@ namespace ICSharpCode.Decompiler.TypeSystem.Implementation
 			if (obj is not MetadataTypeDefinition f)
 				f = (obj as MetadataTypeDefinitionWithOriginalMember)?.backing;
 			if (f is not null)
-				return handle == f.handle && module.PEFile == f.module.PEFile;
+				return handle == f.handle && module.MetadataFile == f.module.MetadataFile;
 			return false;
 		}
 
 		public override int GetHashCode()
 		{
-			return 0x2e0520f2 ^ module.PEFile.GetHashCode() ^ handle.GetHashCode();
+			return 0x2e0520f2 ^ module.MetadataFile.GetHashCode() ^ handle.GetHashCode();
 		}
 
 		bool IEquatable<IType>.Equals(IType other)
@@ -682,13 +681,13 @@ namespace ICSharpCode.Decompiler.TypeSystem.Implementation
 				if (obj is not MetadataTypeDefinition f)
 					f = (obj as MetadataTypeDefinitionWithOriginalMember)?.backing;
 				if (f is not null)
-					return backing.handle == f.handle && backing.module.PEFile == f.module.PEFile;
+					return backing.handle == f.handle && backing.module.MetadataFile == f.module.MetadataFile;
 				return false;
 			}
 
 			public override int GetHashCode()
 			{
-				return 0x11dda32b ^ backing.module.PEFile.GetHashCode() ^ backing.handle.GetHashCode();
+				return 0x11dda32b ^ backing.module.MetadataFile.GetHashCode() ^ backing.handle.GetHashCode();
 			}
 
 			public override string ToString()

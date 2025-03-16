@@ -21,6 +21,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Linq.Expressions;
 
+using ICSharpCode.Decompiler.CSharp;
 using ICSharpCode.Decompiler.TypeSystem;
 using ICSharpCode.Decompiler.Util;
 
@@ -508,8 +509,17 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 					return false; // for now we only support binary compound assignments
 				if (!targetType.IsKnownType(KnownTypeCode.String))
 					return false;
-				var lhs = concatCall.Arguments[0];
-				if (!IsMatchingCompoundLoad(lhs, compoundStore, out var target, out var targetKind, out var finalizeMatch, context.CalculateILSpans, forbiddenVariable: storeInSetter?.Variable))
+				var arg = concatCall.Arguments[0];
+				if (arg is Call call && CallBuilder.IsStringToReadOnlySpanCharImplicitConversion(call.Method))
+				{
+					arg = call.Arguments[0];
+					if (!(concatCall.Arguments[1] is NewObj { Arguments: [AddressOf addressOf] } newObj) || !ILInlining.IsReadOnlySpanCharCtor(newObj.Method))
+					{
+						return false;
+					}
+				}
+
+				if (!IsMatchingCompoundLoad(arg, compoundStore, out var target, out var targetKind, out var finalizeMatch, context.CalculateILSpans, forbiddenVariable: storeInSetter?.Variable))
 					return false;
 				context.Step($"Compound assignment (string concatenation)", compoundStore);
 				finalizeMatch?.Invoke(context);
@@ -519,8 +529,8 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 				{
 					newInst.ILSpans.AddRange(compoundStore.ILSpans);
 					newInst.ILSpans.AddRange(concatCall.ILSpans);
-					if (target != lhs)
-						newInst.ILSpans.AddRange(lhs.ILSpans);
+					if (target != arg)
+						newInst.ILSpans.AddRange(arg.ILSpans);
 					if (compoundStore is StObj stobj && stobj.Target != target)
 						stobj.Target.AddSelfAndChildrenRecursiveILSpans(newInst.ILSpans);
 				}

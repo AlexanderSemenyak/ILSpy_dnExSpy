@@ -19,7 +19,7 @@ namespace ICSharpCode.Decompiler
 				if (cache.TryGetValue(module, out var entry) && entry.Version == settings.SettingsVersion)
 					return entry.TypeSystem;
 
-				var typeSystem = new DecompilerTypeSystem(new PEFile(module), settings);
+				var typeSystem = new DecompilerTypeSystem(new MetadataFile(module), settings);
 				cache[module] = (settings.SettingsVersion, typeSystem);
 				return typeSystem;
 			}

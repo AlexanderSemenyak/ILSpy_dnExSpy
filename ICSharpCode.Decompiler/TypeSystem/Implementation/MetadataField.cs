@@ -232,13 +232,13 @@ namespace ICSharpCode.Decompiler.TypeSystem.Implementation
 			if (obj is not MetadataField f)
 				f = (obj as MetadataFieldWithOriginalMember)?.backing;
 			if (f is not null)
-				return handle == f.handle && module.PEFile == f.module.PEFile;
+				return handle == f.handle && module.MetadataFile == f.module.MetadataFile;
 			return false;
 		}
 
 		public override int GetHashCode()
 		{
-			return 0x11dda32b ^ module.PEFile.GetHashCode() ^ handle.GetHashCode();
+			return 0x11dda32b ^ module.MetadataFile.GetHashCode() ^ handle.GetHashCode();
 		}
 
 		public IField Specialize(TypeParameterSubstitution substitution)
@@ -333,13 +333,13 @@ namespace ICSharpCode.Decompiler.TypeSystem.Implementation
 				if (obj is not MetadataField f)
 					f = (obj as MetadataFieldWithOriginalMember)?.backing;
 				if (f is not null)
-					return backing.handle == f.handle && backing.module.PEFile == f.module.PEFile;
+					return backing.handle == f.handle && backing.module.MetadataFile == f.module.MetadataFile;
 				return false;
 			}
 
 			public override int GetHashCode()
 			{
-				return 0x11dda32b ^ backing.module.PEFile.GetHashCode() ^ backing.handle.GetHashCode();
+				return 0x11dda32b ^ backing.module.MetadataFile.GetHashCode() ^ backing.handle.GetHashCode();
 			}
 
 			public bool Equals(IMember obj, TypeVisitor typeNormalization)

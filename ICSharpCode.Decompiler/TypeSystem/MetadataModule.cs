@@ -50,11 +50,11 @@ namespace ICSharpCode.Decompiler.TypeSystem
 		private readonly Dictionary<EventDef, MetadataEvent> eventDefDict = new Dictionary<EventDef, MetadataEvent>();
 		internal readonly Dictionary<TypeRef, IType> typeRefDict = new Dictionary<TypeRef, IType>();
 
-		internal MetadataModule(ICompilation compilation, PEFile peFile, TypeSystemOptions options)
+		internal MetadataModule(ICompilation compilation, MetadataFile peFile, TypeSystemOptions options)
 		{
 			this.Compilation = compilation;
-			this.PEFile = peFile;
-			this.metadata = peFile.Module;
+			this.MetadataFile = peFile;
+			this.metadata = peFile.Metadata;
 			this.options = options;
 
 			// assembly metadata
@@ -75,9 +75,8 @@ namespace ICSharpCode.Decompiler.TypeSystem
 
 		public TypeSystemOptions TypeSystemOptions => options;
 
-		#region IAssembly interface
-
-		public PEFile PEFile { get; }
+		#region IModule interface
+		public MetadataFile MetadataFile { get; }
 
 		public bool IsMainModule => this == Compilation.MainModule;
 
@@ -110,7 +109,7 @@ namespace ICSharpCode.Decompiler.TypeSystem
 			var typeDefHandle = metadata.Find(topLevelTypeName.ReflectionName, true);
 			if (typeDefHandle == null)
 			{
-				var forwarderHandle = PEFile.GetTypeForwarder(topLevelTypeName);
+				var forwarderHandle = MetadataFile.GetTypeForwarder(topLevelTypeName);
 				if (forwarderHandle != null)
 				{
 					return ResolveForwardedType(forwarderHandle).GetDefinition();

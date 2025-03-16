@@ -27,32 +27,19 @@
 #nullable enable
 
 using dnSpy.Contracts.Text;
-using System;
+using ICSharpCode.Decompiler.TypeSystem;
 
 namespace ICSharpCode.Decompiler.CSharp.Syntax
 {
-	public enum ParameterModifier
-	{
-		None,
-		Ref,
-		Out,
-		Params,
-		In,
-		Scoped
-	}
-
 	public class ParameterDeclaration : AstNode
 	{
 		public static readonly Role<AttributeSection> AttributeRole = EntityDeclaration.AttributeRole;
 		public static readonly TokenRole ThisModifierRole = new TokenRole("this");
 		public static readonly TokenRole ScopedRefRole = new TokenRole("scoped");
-		[Obsolete("Renamed to ScopedRefRole")]
-		public static readonly TokenRole RefScopedRole = ScopedRefRole;
 		public static readonly TokenRole RefModifierRole = new TokenRole("ref");
+		public static readonly TokenRole ReadonlyModifierRole = ComposedType.ReadonlyRole;
 		public static readonly TokenRole OutModifierRole = new TokenRole("out");
 		public static readonly TokenRole InModifierRole = new TokenRole("in");
-		[Obsolete("C# 11 preview: \"ref scoped\" no longer supported")]
-		public static readonly TokenRole ValueScopedRole = new TokenRole("scoped");
 		public static readonly TokenRole ParamsModifierRole = new TokenRole("params");
 
 		#region PatternPlaceholder
@@ -108,6 +95,7 @@ namespace ICSharpCode.Decompiler.CSharp.Syntax
 		}
 
 		bool hasThisModifier;
+		bool isParams;
 		bool isScopedRef;
 
 		public CSharpTokenNode ThisKeyword {
@@ -128,6 +116,14 @@ namespace ICSharpCode.Decompiler.CSharp.Syntax
 			}
 		}
 
+		public bool IsParams {
+			get { return isParams; }
+			set {
+				ThrowIfFrozen();
+				isParams = value;
+			}
+		}
+
 		public bool IsScopedRef {
 			get { return isScopedRef; }
 			set {
@@ -136,24 +132,9 @@ namespace ICSharpCode.Decompiler.CSharp.Syntax
 			}
 		}
 
-		[Obsolete("Renamed to IsScopedRef")]
-		public bool IsRefScoped {
-			get { return isScopedRef; }
-			set {
-				ThrowIfFrozen();
-				isScopedRef = value;
-			}
-		}
+		ReferenceKind parameterModifier;
 
-		[Obsolete("C# 11 preview: \"ref scoped\" no longer supported")]
-		public bool IsValueScoped {
-			get { return false; }
-			set { }
-		}
-
-		ParameterModifier parameterModifier;
-
-		public ParameterModifier ParameterModifier {
+		public ReferenceKind ParameterModifier {
 			get { return parameterModifier; }
 			set {
 				ThrowIfFrozen();
@@ -181,26 +162,6 @@ namespace ICSharpCode.Decompiler.CSharp.Syntax
 			}
 			set {
 				SetChildByRole(Roles.Identifier, value);
-			}
-		}
-
-		bool hasNullCheck;
-
-		public CSharpTokenNode DoubleExclamationToken {
-			get {
-				if (hasNullCheck)
-				{
-					return GetChildByRole(Roles.DoubleExclamation);
-				}
-				return CSharpTokenNode.Null;
-			}
-		}
-
-		public bool HasNullCheck {
-			get { return hasNullCheck; }
-			set {
-				ThrowIfFrozen();
-				hasNullCheck = value;
 			}
 		}
 
@@ -233,7 +194,6 @@ namespace ICSharpCode.Decompiler.CSharp.Syntax
 			var o = other as ParameterDeclaration;
 			return o != null && this.Attributes.DoMatch(o.Attributes, match) && this.ParameterModifier == o.ParameterModifier
 				&& this.Type.DoMatch(o.Type, match) && MatchString(this.Name, o.Name)
-				&& this.HasNullCheck == o.HasNullCheck
 				&& this.DefaultExpression.DoMatch(o.DefaultExpression, match);
 		}
 
@@ -241,7 +201,7 @@ namespace ICSharpCode.Decompiler.CSharp.Syntax
 		{
 		}
 
-		public ParameterDeclaration(AstType type, string name, ParameterModifier modifier = ParameterModifier.None)
+		public ParameterDeclaration(AstType type, string name, ReferenceKind modifier = ReferenceKind.None)
 		{
 			Type = type;
 			NameToken = Identifier.Create(name);
@@ -249,7 +209,7 @@ namespace ICSharpCode.Decompiler.CSharp.Syntax
 			ParameterModifier = modifier;
 		}
 
-		public ParameterDeclaration(string name, ParameterModifier modifier = ParameterModifier.None)
+		public ParameterDeclaration(string name, ReferenceKind modifier = ReferenceKind.None)
 		{
 			Name = name;
 			ParameterModifier = modifier;

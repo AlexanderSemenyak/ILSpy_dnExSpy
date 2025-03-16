@@ -14,7 +14,7 @@ namespace ICSharpCode.Decompiler.Util
 			value = pair.Value;
 		}
 
-#if !NETCORE
+#if !NET8_0_OR_GREATER
 		public static IEnumerable<(A, B)> Zip<A, B>(this IEnumerable<A> input1, IEnumerable<B> input2)
 		{
 			return input1.Zip(input2, (a, b) => (a, b));
@@ -370,7 +370,7 @@ namespace ICSharpCode.Decompiler.Util
 			return first;
 		}
 
-#if !NETCORE
+#if !NET8_0_OR_GREATER
 		public static int EnsureCapacity<T>(this List<T> list, int capacity)
 		{
 			if (capacity < 0)

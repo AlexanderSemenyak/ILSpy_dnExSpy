@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2018 Siegfried Pammer
+// Copyright (c) 2024 Siegfried Pammer
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy of this
 // software and associated documentation files (the "Software"), to deal in the Software
@@ -20,39 +20,80 @@
 
 using System;
 using System.Collections.Generic;
-using System.Text;
+using System.Collections.Immutable;
+using System.Diagnostics;
+using System.Linq;
+
 using dnlib.DotNet;
 
 using ICSharpCode.Decompiler.TypeSystem;
 using ICSharpCode.Decompiler.Util;
 
+using IModule = ICSharpCode.Decompiler.TypeSystem.IModule;
+
 namespace ICSharpCode.Decompiler.Metadata
 {
 	/// <summary>
-	/// PEFile is the main class the decompiler uses to represent a metadata assembly/module.
-	/// Every file on disk can be loaded into a standalone PEFile instance.
+	/// MetadataFile is the main class the decompiler uses to represent a metadata assembly/module.
+	/// Every file on disk can be loaded into a standalone MetadataFile instance.
 	///
-	/// A PEFile can be combined with its referenced assemblies/modules to form a type system,
+	/// A MetadataFile can be combined with its referenced assemblies/modules to form a type system,
 	/// in that case the <see cref="MetadataModule"/> class is used instead.
 	/// </summary>
 	/// <remarks>
-	/// In addition to wrapping a <c>System.Reflection.Metadata.PEReader</c>, this class
+	/// In addition to wrapping a <c>System.Reflection.Metadata.MetadataReader</c>, this class
 	/// contains a few decompiler-specific caches to allow efficiently constructing a type
-	/// system from multiple PEFiles. This allows the caches to be shared across multiple
+	/// system from multiple MetadataFiles. This allows the caches to be shared across multiple
 	/// decompiled type systems.
 	/// </remarks>
-	public sealed class PEFile : IDisposable, IModuleReference
+	[DebuggerDisplay("{Kind}: {FileName}")]
+	public class MetadataFile : TypeSystem.IModuleReference
 	{
-		public ModuleDef Module { get; }
-
-		public PEFile(ModuleDef reader)
+		public enum MetadataFileKind
 		{
-			this.Module = reader ?? throw new ArgumentNullException(nameof(reader));
+			PortableExecutable,
+			ProgramDebugDatabase,
+			WebCIL,
+			Metadata
 		}
 
-		public void Dispose()
+		public string FileName { get; }
+		public MetadataFileKind Kind { get; }
+		public ModuleDef Metadata { get; }
+
+		public bool IsAssembly => Metadata.Assembly is not null;
+
+		string? name;
+
+		public string Name {
+			get {
+				var value = LazyInit.VolatileRead(ref name);
+				if (value == null)
+				{
+					var metadata = Metadata;
+					value = Metadata.Assembly is not null
+						? metadata.Assembly.Name
+						: metadata.Name;
+					value = LazyInit.GetOrSet(ref name, value);
+				}
+				return value;
+			}
+		}
+
+		public MetadataFile(ModuleDef module)
 		{
-			Module.Dispose();
+			Metadata = module;
+			FileName = module.Location;
+			Kind = MetadataFileKind.PortableExecutable;
+
+		}
+
+		/// <summary>
+		/// Finds the top-level-type with the specified name.
+		/// </summary>
+		public TypeDef? GetTypeDefinition(TopLevelTypeName typeName)
+		{
+			return Metadata.Find(typeName.ReflectionName, true);
 		}
 
 		Dictionary<FullTypeName, ExportedType>? typeForwarderLookup;
@@ -63,10 +104,12 @@ namespace ICSharpCode.Decompiler.Metadata
 		public ExportedType? GetTypeForwarder(FullTypeName typeName)
 		{
 			var lookup = LazyInit.VolatileRead(ref typeForwarderLookup);
-			if (lookup == null) {
-				lookup = new Dictionary<FullTypeName, ExportedType>(Module.ExportedTypes.Count);
-				foreach (var handle in Module.ExportedTypes) {
-					lookup[handle.GetFullTypeName()] = handle;
+			if (lookup == null)
+			{
+				lookup = new Dictionary<FullTypeName, ExportedType>(Metadata.ExportedTypes.Count);
+				foreach (var td in Metadata.ExportedTypes)
+				{
+					lookup[td.GetFullTypeName()] = td;
 				}
 				lookup = LazyInit.GetOrSet(ref typeForwarderLookup, lookup);
 			}
@@ -78,26 +121,26 @@ namespace ICSharpCode.Decompiler.Metadata
 
 		public IModuleReference WithOptions(TypeSystemOptions options)
 		{
-			return new PEFileWithOptions(this, options);
+			return new MetadataFileWithOptions(this, options);
 		}
 
-		TypeSystem.IModule IModuleReference.Resolve(ITypeResolveContext context)
+		IModule IModuleReference.Resolve(ITypeResolveContext context)
 		{
 			return new MetadataModule(context.Compilation, this, TypeSystemOptions.Default);
 		}
 
-		private class PEFileWithOptions : IModuleReference
+		private class MetadataFileWithOptions : IModuleReference
 		{
-			readonly PEFile peFile;
+			readonly MetadataFile peFile;
 			readonly TypeSystemOptions options;
 
-			public PEFileWithOptions(PEFile peFile, TypeSystemOptions options)
+			public MetadataFileWithOptions(MetadataFile peFile, TypeSystemOptions options)
 			{
 				this.peFile = peFile;
 				this.options = options;
 			}
 
-			TypeSystem.IModule IModuleReference.Resolve(ITypeResolveContext context)
+			IModule IModuleReference.Resolve(ITypeResolveContext context)
 			{
 				return new MetadataModule(context.Compilation, peFile, options);
 			}

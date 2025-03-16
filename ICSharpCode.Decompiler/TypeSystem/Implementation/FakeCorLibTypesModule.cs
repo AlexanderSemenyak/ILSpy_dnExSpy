@@ -76,7 +76,7 @@ namespace ICSharpCode.Decompiler.TypeSystem.Implementation
 		string ISymbol.Name => corLibRef.Name;
 		SymbolKind ISymbol.SymbolKind => SymbolKind.Module;
 
-		Metadata.PEFile IModule.PEFile => null;
+		Metadata.MetadataFile IModule.MetadataFile => null;
 		INamespace IModule.RootNamespace => rootNamespace;
 
 		public IEnumerable<ITypeDefinition> TopLevelTypeDefinitions => fakeDefinitions.Values.Where(td => td != null);

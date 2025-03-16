@@ -358,14 +358,9 @@ namespace ICSharpCode.Decompiler.CSharp.Syntax
 				for (int i = 0; i < fpt.ParameterTypes.Length; i++)
 				{
 					var paramDecl = new ParameterDeclaration();
-					paramDecl.ParameterModifier = fpt.ParameterReferenceKinds[i] switch {
-						ReferenceKind.In => ParameterModifier.In,
-						ReferenceKind.Ref => ParameterModifier.Ref,
-						ReferenceKind.Out => ParameterModifier.Out,
-						_ => ParameterModifier.None,
-					};
+					paramDecl.ParameterModifier = fpt.ParameterReferenceKinds[i];
 					IType parameterType = fpt.ParameterTypes[i];
-					if (paramDecl.ParameterModifier != ParameterModifier.None && parameterType is ByReferenceType brt)
+					if (paramDecl.ParameterModifier != ReferenceKind.None && parameterType is ByReferenceType brt)
 					{
 						paramDecl.Type = ConvertType(brt.ElementType);
 					}
@@ -1722,22 +1717,8 @@ namespace ICSharpCode.Decompiler.CSharp.Syntax
 				throw new ArgumentNullException(nameof(parameter));
 			ParameterDeclaration decl = new ParameterDeclaration();
 			decl.WithAnnotation(parameter.MDParameter);
-			if (parameter.IsRef)
-			{
-				decl.ParameterModifier = ParameterModifier.Ref;
-			}
-			else if (parameter.IsOut)
-			{
-				decl.ParameterModifier = ParameterModifier.Out;
-			}
-			else if (parameter.IsIn)
-			{
-				decl.ParameterModifier = ParameterModifier.In;
-			}
-			else if (parameter.IsParams)
-			{
-				decl.ParameterModifier = ParameterModifier.Params;
-			}
+			decl.ParameterModifier = parameter.ReferenceKind;
+			decl.IsParams = parameter.IsParams;
 			decl.IsScopedRef = parameter.Lifetime.ScopedRef;
 			if (ShowAttributes)
 			{
@@ -1758,7 +1739,8 @@ namespace ICSharpCode.Decompiler.CSharp.Syntax
 			{
 				decl.NameToken = Identifier.Create(parameter.Name).WithAnnotation(parameter.MDParameter);
 			}
-			if (parameter.IsOptional && decl.ParameterModifier is ParameterModifier.None or ParameterModifier.In && parameter.HasConstantValueInSignature && this.ShowConstantValues)
+			if (parameter.IsOptional && decl.ParameterModifier is ReferenceKind.None or ReferenceKind.In or ReferenceKind.RefReadOnly
+				&& parameter.HasConstantValueInSignature && this.ShowConstantValues)
 			{
 				try
 				{

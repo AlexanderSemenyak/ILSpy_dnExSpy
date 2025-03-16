@@ -238,7 +238,7 @@ namespace ICSharpCode.Decompiler.CSharp
 			if (parameters is not null)
 			{
 				foreach (var p in parameters) {
-					if (p.ParameterModifier != ParameterModifier.Out)
+					if (p.ParameterModifier != ReferenceKind.Out)
 						continue;
 					var parameter = p.Annotation<Parameter>();
 					var defVal = new DefaultValueExpression(typeSystemAstBuilder.ConvertType(typeSystem.MainModule.ResolveType(parameter.Type.RemovePinnedAndModifiers().Next, tsGenericContext)));

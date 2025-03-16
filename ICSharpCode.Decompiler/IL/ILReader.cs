@@ -280,7 +280,7 @@ namespace ICSharpCode.Decompiler.IL
 			{
 				var param = method.Parameters[p.MethodSigIndex];
 				parameterType = param.Type;
-				isRefReadOnly = param.IsIn;
+				isRefReadOnly = param.ReferenceKind is ReferenceKind.In or ReferenceKind.RefReadOnly;
 			}
 
 			var ilVar = new ILVariable(VariableKind.Parameter, parameterType, p.MethodSigIndex == -2 ? -1 : p.MethodSigIndex);

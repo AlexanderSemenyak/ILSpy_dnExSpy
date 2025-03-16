@@ -265,9 +265,9 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 					var tempStore = context.Function.RegisterVariable(VariableKind.InitializerTarget, new PointerType(elementType));
 					block.Instructions.Add(new StLoc(tempStore, locallocExpr));
 
-					for (int i = 0; i < blob.Length; i++)
+					while (blob.BytesLeft > 0)
 					{
-						block.Instructions.Add(StElemPtr(tempStore, i, new LdcI4(blob[i]), elementType));
+						block.Instructions.Add(StElemPtr(tempStore, (int)blob.Position, ReadElement(ref blob, elementType), elementType));
 					}
 
 					block.FinalInstruction = new LdLoc(tempStore);
@@ -301,13 +301,30 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 			return false;
 		}
 
-		bool HandleCpblkInitializer(Block block, int pos, ILVariable v, long length, out byte[] blob, out IType elementType)
+		private ILInstruction ReadElement(ref DataReader blob, IType elementType)
+		{
+			switch (elementType.GetSize())
+			{
+				case 1:
+					return new LdcI4(blob.ReadByte());
+				case 2:
+					return new LdcI4(blob.ReadInt16());
+				case 4:
+					return new LdcI4(blob.ReadInt32());
+				case 8:
+					return new LdcI8(blob.ReadInt64());
+				default:
+					throw new NotSupportedException();
+			}
+		}
+
+		bool HandleCpblkInitializer(Block block, int pos, ILVariable v, long length, out DataReader blob, out IType elementType)
 		{
 			blob = default;
 			elementType = null;
 			if (!block.Instructions[pos].MatchCpblk(out var dest, out var src, out var size))
 				return false;
-			if (!dest.MatchLdLoc(v) || !src.MatchLdsFlda(out var field) || !size.MatchLdcI4((int)length))
+			if (!dest.MatchLdLoc(v) || !MatchGetStaticFieldAddress(src, out var field) || !size.MatchLdcI4((int)length))
 				return false;
 			if (!(v.IsSingleDefinition && v.LoadCount == 2))
 				return false;
@@ -333,20 +350,46 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 			else if (value is NewObj { Arguments: { Count: 2 } } newObj
 				  && newObj.Method.DeclaringType.IsKnownType(KnownTypeCode.SpanOfT)
 				  && newObj.Arguments[0].MatchLdLoc(v)
-				  && newObj.Arguments[1].MatchLdcI4((int)length))
+				  && newObj.Arguments[1].MatchLdcI4(out var elementCount))
 			{
 				elementType = ((ParameterizedType)newObj.Method.DeclaringType).TypeArguments[0];
+				if (elementCount != length / elementType.GetSize())
+					return false;
 			}
 			else
 			{
 				return false;
 			}
-			blob = fd.InitialValue;
-
+			blob = ByteArrayDataReaderFactory.CreateReader(fd.InitialValue);
 			return true;
 		}
 
-		bool HandleSequentialLocAllocInitializer(Block block, int pos, ILVariable store, ILInstruction locAllocInstruction, out IType elementType, out StObj[] values, out int instructionsToRemove)
+		bool MatchGetStaticFieldAddress(ILInstruction input, out TypeSystem.IField field)
+		{
+			if (input.MatchLdsFlda(out field))
+				return true;
+			// call get_Item(addressof System.ReadOnlySpan`1[[T]](call CreateSpan(ldmembertoken field)), ldc.i4 0)
+			if (input is not Call { Method.Name: "get_Item", Arguments.Count: 2 } call)
+				return false;
+			if (!call.Method.DeclaringType.IsKnownType(KnownTypeCode.ReadOnlySpanOfT))
+				return false;
+			if (!call.Arguments[1].MatchLdcI4(0))
+				return false;
+			if (call.Arguments[0] is not AddressOf addressOf)
+				return false;
+			if (addressOf.Value is not Call { Method.Name: "CreateSpan", Arguments.Count: 1 } createSpanCall)
+				return false;
+			if (!IsRuntimeHelpers(createSpanCall.Method.DeclaringType))
+				return false;
+			if (!createSpanCall.Arguments[0].MatchLdMemberToken(out var member))
+				return false;
+			field = member as TypeSystem.IField;
+			return field != null;
+		}
+
+		static bool IsRuntimeHelpers(IType type) => type is { Name: "RuntimeHelpers", Namespace: "System.Runtime.CompilerServices" };
+
+		unsafe bool HandleSequentialLocAllocInitializer(Block block, int pos, ILVariable store, ILInstruction locAllocInstruction, out IType elementType, out StObj[] values, out int instructionsToRemove)
 		{
 			int elementCount = 0;
 			long minExpectedOffset = 0;
@@ -357,24 +400,59 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 			if (!locAllocInstruction.MatchLocAlloc(out var lengthInstruction))
 				return false;
 
-			if (block.Instructions[pos].MatchInitblk(out var dest, out var value, out var size)
-				&& lengthInstruction.MatchLdcI(out long byteCount))
+			DataReader blob = default;
+
+			if (lengthInstruction.MatchLdcI(out long byteCount))
 			{
-				if (!dest.MatchLdLoc(store) || !size.MatchLdcI(byteCount))
-					return false;
-				instructionsToRemove++;
-				pos++;
+				if (block.Instructions[pos].MatchInitblk(out var dest, out var value, out var size))
+				{
+					if (!dest.MatchLdLoc(store) || !size.MatchLdcI(byteCount))
+						return false;
+					instructionsToRemove++;
+					pos++;
+				}
+				else if (block.Instructions[pos].MatchCpblk(out dest, out var src, out size))
+				{
+					if (!dest.MatchLdLoc(store) || !size.MatchLdcI(byteCount))
+						return false;
+					if (!MatchGetStaticFieldAddress(src, out var field))
+						return false;
+					if (field.MetadataToken is not FieldDef fd || fd.InitialValue is null)
+						return false;
+					blob = ByteArrayDataReaderFactory.CreateReader(fd.InitialValue);
+					instructionsToRemove++;
+					pos++;
+				}
 			}
 
 			for (int i = pos; i < block.Instructions.Count; i++)
 			{
 				// match the basic stobj pattern
-				if (!block.Instructions[i].MatchStObj(out ILInstruction target, out value, out var currentType)
+				if (!block.Instructions[i].MatchStObj(out ILInstruction target, out var value, out var currentType)
 					|| value.Descendants.OfType<IInstructionWithVariableOperand>().Any(inst => inst.Variable == store))
 					break;
-				if (elementType != null && !currentType.Equals(elementType))
+				// first
+				if (elementType == null)
+				{
+					elementType = currentType;
+					if (blob.Length != 0)
+					{
+						var countInstruction = PointerArithmeticOffset.Detect(lengthInstruction, elementType, checkForOverflow: true);
+						if (countInstruction == null || !countInstruction.MatchLdcI(out long valuesLength) || valuesLength < 1)
+							return false;
+						values = new StObj[(int)valuesLength];
+						int valueIndex = 0;
+						while (blob.BytesLeft > 0 && valueIndex < values.Length)
+						{
+							values[valueIndex] = StElemPtr(store, (int)blob.Position, ReadElement(ref blob, elementType), elementType);
+							valueIndex++;
+						}
+					}
+				}
+				else if (!currentType.Equals(elementType))
+				{
 					break;
-				elementType = currentType;
+				}
 				// match the target
 				// should be either ldloc store (at offset 0)
 				// or binary.add(ldloc store, offset) where offset is either 'elementSize' or 'i * elementSize'
@@ -434,7 +512,7 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 			return new StObj(targetInst, storeInstruction.Value, storeInstruction.Type);
 		}
 
-		ILInstruction StElemPtr(ILVariable target, int offset, LdcI4 value, IType type)
+		StObj StElemPtr(ILVariable target, int offset, ILInstruction value, IType type)
 		{
 			var targetInst = offset == 0 ? (ILInstruction)new LdLoc(target) : new BinaryNumericInstruction(
 				BinaryNumericOperator.Add,
@@ -740,12 +818,8 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 			IMethod method = call.Method;
 			if (!method.IsStatic || method.Name != "InitializeArray" || method.DeclaringTypeDefinition == null)
 				return false;
-			var declaringType = method.DeclaringTypeDefinition;
-			if (declaringType.DeclaringType != null || declaringType.Name != "RuntimeHelpers"
-				|| declaringType.Namespace != "System.Runtime.CompilerServices")
-			{
+			if (!IsRuntimeHelpers(method.DeclaringType))
 				return false;
-			}
 			array = call.Arguments[0];
 			if (!call.Arguments[1].MatchLdMemberToken(out var member))
 				return false;

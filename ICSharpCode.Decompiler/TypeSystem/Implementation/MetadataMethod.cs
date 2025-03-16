@@ -424,13 +424,13 @@ namespace ICSharpCode.Decompiler.TypeSystem.Implementation
 			if (obj is not MetadataMethod m)
 				m = (obj as MetadataMethodWithOriginalMember)?.backing;
 			if (m is not null)
-				return handle == m.handle && module.PEFile == m.module.PEFile;
+				return handle == m.handle && module.MetadataFile == m.module.MetadataFile;
 			return false;
 		}
 
 		public override int GetHashCode()
 		{
-			return 0x5a00d671 ^ module.PEFile.GetHashCode() ^ handle.GetHashCode();
+			return 0x5a00d671 ^ module.MetadataFile.GetHashCode() ^ handle.GetHashCode();
 		}
 
 		bool IMember.Equals(IMember obj, TypeVisitor typeNormalization)
@@ -545,13 +545,13 @@ namespace ICSharpCode.Decompiler.TypeSystem.Implementation
 				if (obj is not MetadataMethod f)
 					f = (obj as MetadataMethodWithOriginalMember)?.backing;
 				if (f is not null)
-					return backing.handle == f.handle && backing.module.PEFile == f.module.PEFile;
+					return backing.handle == f.handle && backing.module.MetadataFile == f.module.MetadataFile;
 				return false;
 			}
 
 			public override int GetHashCode()
 			{
-				return 0x11dda32b ^ backing.module.PEFile.GetHashCode() ^ backing.handle.GetHashCode();
+				return 0x11dda32b ^ backing.module.MetadataFile.GetHashCode() ^ backing.handle.GetHashCode();
 			}
 
 			public bool Equals(IMember obj, TypeVisitor typeNormalization)

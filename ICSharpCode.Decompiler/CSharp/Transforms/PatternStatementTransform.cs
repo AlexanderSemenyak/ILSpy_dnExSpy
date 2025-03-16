@@ -855,7 +855,7 @@ namespace ICSharpCode.Decompiler.CSharp.Transforms
 			var parent = identifier.Parent;
 			var mrr = parent.Annotation<MemberResolveResult>();
 			var field = mrr?.Member as IField;
-			if (field == null)
+			if (field == null || field.Accessibility != Accessibility.Private)
 				return null;
 			foreach (var ev in field.DeclaringType.GetEvents(null, GetMemberOptions.IgnoreInheritedMembers))
 			{
@@ -1095,7 +1095,9 @@ namespace ICSharpCode.Decompiler.CSharp.Transforms
 			if (!ev.PrivateImplementationType.IsNull)
 				return null;
 			const Modifiers withoutBody = Modifiers.Abstract | Modifiers.Extern;
-			if ((ev.Modifiers & withoutBody) == 0 && ev.GetSymbol() is IEvent symbol)
+			if (ev.GetSymbol() is not IEvent symbol)
+				return null;
+			if ((ev.Modifiers & withoutBody) == 0)
 			{
 				if (!CheckAutomaticEventV4AggressivelyInlined(ev) && !CheckAutomaticEventV4(ev) && !CheckAutomaticEventV2(ev) && !CheckAutomaticEventV4MCS(ev))
 					return null;
@@ -1134,7 +1136,7 @@ namespace ICSharpCode.Decompiler.CSharp.Transforms
 			}
 
 			var fieldDecl = ev.Parent?.Children.OfType<FieldDeclaration>()
-				.FirstOrDefault(fd => CSharpAstBuilder.IsEventBackingFieldName(fd.Variables.Single().Name, ev.Name, out _));
+				.FirstOrDefault(IsEventBackingField);
 			if (fieldDecl != null)
 			{
 				fieldDecl.Remove();
@@ -1150,6 +1152,17 @@ namespace ICSharpCode.Decompiler.CSharp.Transforms
 			ev.ReplaceWith(ed);
 			ev.AddAllRecursiveILSpansTo(ed);
 			return ed;
+
+			bool IsEventBackingField(FieldDeclaration fd)
+			{
+				if (fd.Variables.Count > 1)
+					return false;
+				if (fd.GetSymbol() is not IField f)
+					return false;
+				return f.Accessibility == Accessibility.Private
+					&& symbol.ReturnType.Equals(f.ReturnType)
+					&& CSharpDecompiler.IsEventBackingFieldName(f.Name, ev.Name, out _);
+			}
 		}
 		#endregion
 
@@ -1326,6 +1339,17 @@ namespace ICSharpCode.Decompiler.CSharp.Transforms
 					break;
 			}
 			return base.VisitBinaryOperatorExpression(expr);
+		}
+
+		public override AstNode VisitUnaryOperatorExpression(UnaryOperatorExpression expr)
+		{
+			if (expr.Operator == UnaryOperatorType.Not && expr.Expression is BinaryOperatorExpression { Operator: BinaryOperatorType.Equality } binary)
+			{
+				binary.Operator = BinaryOperatorType.InEquality;
+				expr.ReplaceWith(binary.Detach());
+				return VisitBinaryOperatorExpression(binary);
+			}
+			return base.VisitUnaryOperatorExpression(expr);
 		}
 		#endregion
 

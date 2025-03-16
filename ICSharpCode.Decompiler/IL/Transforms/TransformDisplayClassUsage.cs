@@ -412,7 +412,7 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 		{
 			if (definition == null)
 				return false;
-			if (definition.ParentModule.PEFile != context.PEFile)
+			if (definition.ParentModule.MetadataFile != context.PEFile)
 				return false;
 			// We do not want to accidentially transform state-machines and thus destroy them.
 			var token = (dnlib.DotNet.TypeDef)definition.MetadataToken;
@@ -438,7 +438,7 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 					return false;
 				var handle = method.MetadataToken as dnlib.DotNet.MethodDef;
 				var module = (MetadataModule)method.ParentModule;
-				var file = module.PEFile;
+				var file = module.MetadataFile;
 				if (handle == null || file != context.PEFile)
 					return false;
 				var def = handle;
@@ -539,7 +539,7 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 						// "dc.field = v; v = 42; use(dc.field)" cannot turn to "v = 42; use(v);"
 						return null;
 					}
-					if (!(expectedType == null || v.Kind == VariableKind.StackSlot || v.Type.Equals(expectedType)))
+					if (!(expectedType == null || v.Kind == VariableKind.StackSlot || NormalizeTypeVisitor.IgnoreNullability.EquivalentTypes(v.Type, expectedType)))
 						return null;
 					return v;
 				case LdObj ldfld:

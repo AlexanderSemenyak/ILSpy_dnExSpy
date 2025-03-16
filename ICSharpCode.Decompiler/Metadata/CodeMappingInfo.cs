@@ -31,6 +31,11 @@ namespace ICSharpCode.Decompiler.Metadata
 	public class CodeMappingInfo
 	{
 		/// <summary>
+		/// The module containing the code.
+		/// </summary>
+		public MetadataFile Module { get; }
+
+		/// <summary>
 		/// The (parent) TypeDef containing the code.
 		/// </summary>
 		public TypeDef TypeDefinition { get; }

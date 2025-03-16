@@ -98,8 +98,7 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 				return;
 			}
 			else if (inst.Kind == ComparisonKind.Inequality && inst.LiftingKind == ComparisonLiftingKind.None
-			  && inst.Right.MatchLdcI4(0) && (IfInstruction.IsInConditionSlot(inst) || inst.Left is Comp)
-		  )
+				&& inst.Right.MatchLdcI4(0) && (IfInstruction.IsInConditionSlot(inst) || inst.Left is Comp))
 			{
 				// if (comp(x != 0)) ==> if (x)
 				// comp(comp(...) != 0) => comp(...)
@@ -113,6 +112,10 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 				inst.ReplaceWith(inst.Left);
 				inst.Left.AcceptVisitor(this);
 				return;
+			}
+			if (context.Settings.LiftNullables)
+			{
+				new NullableLiftingTransform(context).Run(inst);
 			}
 
 			base.VisitComp(inst);
@@ -322,6 +325,18 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 
 		protected internal override void VisitCall(Call inst)
 		{
+			if (NullableLiftingTransform.MatchGetValueOrDefault(inst, out var nullableValue, out var fallback)
+				&& SemanticHelper.IsPure(fallback.Flags))
+			{
+				context.Step("call Nullable{T}.GetValueOrDefault(a, b) -> a ?? b", inst);
+				var ldObj = new LdObj(nullableValue, inst.Method.DeclaringType);
+				var replacement = new NullCoalescingInstruction(NullCoalescingKind.NullableWithValueFallback, ldObj, fallback) {
+					UnderlyingResultType = fallback.ResultType
+				};
+				inst.ReplaceWith(replacement.WithILRange(inst));
+				replacement.AcceptVisitor(this);
+				return;
+			}
 			base.VisitCall(inst);
 			TransformAssignment.HandleCompoundAssign(inst, context);
 		}
@@ -1017,7 +1032,9 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 			}
 			context.Step("TransformCatchVariable", entryPoint.Instructions[0]);
 			exceptionVar.Kind = VariableKind.ExceptionLocal;
+			exceptionVar.Name = handler.Variable.Name;
 			exceptionVar.Type = handler.Variable.Type;
+			exceptionVar.HasGeneratedName = handler.Variable.HasGeneratedName;
 			handler.Variable = exceptionVar;
 			if (isCatchBlock)
 			{

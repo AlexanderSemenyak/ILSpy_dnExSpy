@@ -383,7 +383,7 @@ namespace ICSharpCode.Decompiler.IL.ControlFlow
 		private bool MatchRoslynSwitchOnString()
 		{
 			var insns = analysis.RootBlock.Instructions;
-			return insns.Count >= 3 && SwitchOnStringTransform.MatchComputeStringHashCall(insns[insns.Count - 3], analysis.SwitchVariable, out var switchLdLoc);
+			return insns.Count >= 3 && SwitchOnStringTransform.MatchComputeStringOrReadOnlySpanHashCall(insns[insns.Count - 3], analysis.SwitchVariable, out _);
 		}
 
 		/// <summary>

@@ -296,6 +296,16 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 				keepAssignmentBefore = true;
 				switchValue = new LdLoc(switchValueVar);
 			}
+			if (!switchValueVar.Type.IsKnownType(KnownTypeCode.String))
+			{
+				if (!context.Settings.SwitchOnReadOnlySpanChar)
+					return false;
+				if (!switchValueVar.Type.IsKnownType(KnownTypeCode.ReadOnlySpanOfT)
+					&& !switchValueVar.Type.IsKnownType(KnownTypeCode.SpanOfT))
+				{
+					return false;
+				}
+			}
 			// if instruction must be followed by a branch to the next case
 			if (!nextCaseJump.MatchBranch(out Block currentCaseBlock))
 				return false;
@@ -337,7 +347,7 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 			int offset = firstBlock == null ? 1 : 0;
 			var sections = new List<SwitchSection>(values.Skip(offset).SelectWithIndex((index, s) => new SwitchSection { Labels = new LongSet(index), Body = s.Item2 is Block b ? new Branch(b) : s.Item2.Clone() }));
 			sections.Add(new SwitchSection { Labels = new LongSet(new LongInterval(0, sections.Count)).Invert(), Body = currentCaseBlock != null ? (ILInstruction)new Branch(currentCaseBlock) : new Leave((BlockContainer)nextCaseBlock) });
-			var stringToInt = new StringToInt(switchValue, values.Skip(offset).Select(item => item.Item1).ToArray(), context.TypeSystem.FindType(KnownTypeCode.String));
+			var stringToInt = new StringToInt(switchValue, values.Skip(offset).Select(item => item.Item1).ToArray(), switchValueVar.Type);
 			var inst = new SwitchInstruction(stringToInt);
 			inst.Sections.AddRange(sections);
 
@@ -1052,7 +1062,7 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 			if (!(switchBlockInstructionsOffset + 1 < switchBlockInstructions.Count
 				&& switchBlockInstructions[switchBlockInstructionsOffset + 1] is SwitchInstruction switchInst
 				&& switchInst.Value.MatchLdLoc(out var switchValueVar)
-				&& MatchComputeStringHashCall(switchBlockInstructions[switchBlockInstructionsOffset],
+				&& MatchComputeStringOrReadOnlySpanHashCall(switchBlockInstructions[switchBlockInstructionsOffset],
 											  switchValueVar, out LdLoc switchValueLoad)))
 			{
 				return false;
@@ -1104,10 +1114,12 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 				stringValues.Add((null, nullValueCaseBlock));
 			}
 			// In newer Roslyn versions (>=3.7) the null check appears in the default case, not prior to the switch.
-			if (!stringValues.Any(pair => pair.Value == null) && IsNullCheckInDefaultBlock(ref exitOrDefaultBlock, switchValueLoad.Variable, out nullValueCaseBlock))
+			ILInstruction exitOrDefault = exitOrDefaultBlock;
+			if (!stringValues.Any(pair => pair.Value == null) && IsNullCheckInDefaultBlock(ref exitOrDefault, switchValueLoad.Variable, out nullValueCaseBlock))
 			{
 				stringValues.Add((null, nullValueCaseBlock));
 			}
+			exitOrDefaultBlock = (Block)exitOrDefault;
 
 			context.Step(nameof(MatchRoslynSwitchOnString), switchValueLoad);
 			Block oldDefaultBlock = null;
@@ -1249,7 +1261,7 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 			{
 				if (!instructions[i + 1].MatchBranch(out var nextBlock))
 					return false;
-				if (!exitBlockJump.MatchBranch(out nullCase))
+				if (!exitBlockJump.MatchBranch(out nullCase) && !exitBlockJump.MatchLeave(out _))
 					return false;
 				// if (comp(ldloc switchValueVar == ldnull)) br ...
 				// br switchOnLengthBlock
@@ -1275,7 +1287,7 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 				switchValueVar = null; // will be extracted in MatchSwitchOnLengthBlock
 				switchOnLengthBlockStartOffset = i;
 			}
-			Block defaultCase = null;
+			ILInstruction defaultCase = null;
 			List<Block> opEqualityBlocks = new List<Block>();
 			if (!MatchSwitchOnLengthBlock(ref switchValueVar, switchOnLengthBlock, switchOnLengthBlockStartOffset, out var blocksByLength))
 				return false;
@@ -1290,41 +1302,51 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 				else
 				{
 					int length = (int)b.Length.Intervals[0].Start;
-					if (MatchSwitchOnCharBlock(b.TargetBlock, length, switchValueVar, out var mapping))
+					switch (b.TargetBlock)
 					{
-						foreach (var item in mapping)
-						{
-							if (!stringValues.Any(x => x.Item1 == item.StringValue))
+						case Leave leave:
+							break;
+						case Block targetBlock:
+							if (MatchSwitchOnCharBlock(targetBlock, length, switchValueVar, out var mapping))
 							{
-								stringValues.Add(item);
+								foreach (var item in mapping)
+								{
+									if (!stringValues.Any(x => x.Item1 == item.StringValue))
+									{
+										stringValues.Add(item);
+									}
+									else
+									{
+										return false;
+									}
+								}
+							}
+							else if (MatchRoslynCaseBlockHead(targetBlock, switchValueVar, out var bodyOrLeave, out var exit, out string stringValue, out _))
+							{
+								if (exit != defaultCase)
+									return false;
+								if (!stringValues.Any(x => x.Item1 == stringValue))
+								{
+									stringValues.Add((stringValue, bodyOrLeave));
+								}
+								else
+								{
+									return false;
+								}
+							}
+							else if (length == 0)
+							{
+								stringValues.Add(("", b.TargetBlock));
 							}
 							else
 							{
 								return false;
 							}
-						}
-					}
-					else if (MatchRoslynCaseBlockHead(b.TargetBlock, switchValueVar, out var bodyOrLeave, out var exit, out string stringValue, out _))
-					{
-						if (exit != defaultCase)
+							break;
+						default:
 							return false;
-						if (!stringValues.Any(x => x.Item1 == stringValue))
-						{
-							stringValues.Add((stringValue, bodyOrLeave));
-						}
-						else
-						{
-							return false;
-						}
 					}
-					else if (length == 0)
-					{
-						stringValues.Add(("", b.TargetBlock));
-					}
-					else
-					{
-						return false;
-					}
+
 				}
 			}
 
@@ -1352,7 +1374,7 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 			}
 			var newSwitch = new SwitchInstruction(new StringToInt(new LdLoc(switchValueVar), values, switchValueVar.Type));
 			newSwitch.Sections.AddRange(sections);
-			newSwitch.Sections.Add(new SwitchSection { Labels = defaultLabel, Body = new Branch(defaultCase) });
+			newSwitch.Sections.Add(new SwitchSection { Labels = defaultLabel, Body = defaultCase is Block b2 ? new Branch(b2) : defaultCase });
 			newSwitch.AddILRange(instructions[i]);
 			if (nullCase != null)
 			{
@@ -1364,11 +1386,15 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 				for (int j = 0; j < instructions.Count - (i + 1); j++)
 					instructions[i + 1 + j].AddSelfAndChildrenRecursiveILSpans(newSwitch.ILSpans);
 				switchOnLengthBlock.AddSelfAndChildrenRecursiveILSpans(newSwitch.ILSpans);
-				foreach ((_, Block bl) in blocksByLength)
+				foreach ((_, ILInstruction instr) in blocksByLength)
 				{
-					if (bl.Instructions.Count > 2 && bl.Instructions.Last() is Branch br)
-						br.TargetBlock.AddSelfAndChildrenRecursiveILSpans(newSwitch.ILSpans);
-					bl.AddSelfAndChildrenRecursiveILSpans(newSwitch.ILSpans);
+					if (instr is Block bl)
+					{
+						if (bl.Instructions.Count > 2 && bl.Instructions.Last() is Branch br)
+							br.TargetBlock.AddSelfAndChildrenRecursiveILSpans(newSwitch.ILSpans);
+						bl.AddSelfAndChildrenRecursiveILSpans(newSwitch.ILSpans);
+					}
+					//TODO:
 				}
 				foreach (Block bl in opEqualityBlocks)
 					bl.AddSelfAndChildrenRecursiveILSpans(newSwitch.ILSpans);
@@ -1490,7 +1516,7 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 				return results?.Count > 0;
 			}
 
-			bool MatchSwitchOnLengthBlock(ref ILVariable switchValueVar, Block switchOnLengthBlock, int startOffset, out List<(LongSet Length, Block TargetBlock)> blocks)
+			bool MatchSwitchOnLengthBlock(ref ILVariable switchValueVar, Block switchOnLengthBlock, int startOffset, out List<(LongSet Length, ILInstruction TargetBlock)> blocks)
 			{
 				blocks = null;
 				SwitchInstruction @switch;
@@ -1573,17 +1599,18 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 				{
 					if (section.HasNullLabel)
 						return false;
-					if (!section.Body.MatchBranch(out var target))
+					if (!section.Body.MatchBranch(out var target) && !section.Body.MatchLeave(out _))
 						return false;
+					ILInstruction targetInst = target ?? section.Body;
 					if (section.Labels.Count() != 1)
 					{
-						defaultCase ??= target;
-						if (defaultCase != target)
+						defaultCase ??= targetInst;
+						if (defaultCase != targetInst)
 							return false;
 					}
 					else
 					{
-						blocks.Add((section.Labels, target));
+						blocks.Add((section.Labels, targetInst));
 					}
 				}
 				return true;
@@ -1597,10 +1624,10 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 		///	    br newDefaultBlock
 		/// }
 		/// </summary>
-		private bool IsNullCheckInDefaultBlock(ref Block exitOrDefaultBlock, ILVariable switchVar, out Block nullValueCaseBlock)
+		private bool IsNullCheckInDefaultBlock(ref ILInstruction exitOrDefault, ILVariable switchVar, out Block nullValueCaseBlock)
 		{
 			nullValueCaseBlock = null;
-			if (exitOrDefaultBlock == null)
+			if (exitOrDefault is not Block exitOrDefaultBlock)
 				return false;
 			if (!exitOrDefaultBlock.Instructions[0].MatchIfInstruction(out var condition, out var thenBranch))
 				return false;
@@ -1614,7 +1641,7 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 				return false;
 			if (elseBlock.Parent != exitOrDefaultBlock.Parent)
 				return false;
-			exitOrDefaultBlock = elseBlock;
+			exitOrDefault = elseBlock;
 			return true;
 		}
 
@@ -1744,19 +1771,28 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 		}
 
 		/// <summary>
-		/// Matches 'stloc(targetVar, call ComputeStringHash(ldloc switchValue))'
+		/// Matches
+		/// 'stloc(targetVar, call ComputeStringHash(ldloc switchValue))'
+		/// - or -
+		/// 'stloc(targetVar, call ComputeSpanHash(ldloc switchValue))'
+		/// - or -
+		/// 'stloc(targetVar, call ComputeReadOnlySpanHash(ldloc switchValue))'
 		/// </summary>
-		internal static bool MatchComputeStringHashCall(ILInstruction inst, ILVariable targetVar, out LdLoc switchValue)
+		internal static bool MatchComputeStringOrReadOnlySpanHashCall(ILInstruction inst, ILVariable targetVar, out LdLoc switchValue)
 		{
 			switchValue = null;
 			if (!inst.MatchStLoc(targetVar, out var value))
 				return false;
-			if (!(value is Call c && c.Arguments.Count == 1 && c.Method.Name == "ComputeStringHash" && c.Method.IsCompilerGeneratedOrIsInCompilerGeneratedClass()))
-				return false;
-			if (!(c.Arguments[0] is LdLoc))
-				return false;
-			switchValue = (LdLoc)c.Arguments[0];
-			return true;
+			if (value is Call c && c.Arguments.Count == 1
+				&& c.Method.Name is "ComputeStringHash" or "ComputeSpanHash" or "ComputeReadOnlySpanHash"
+				&& c.Method.IsCompilerGeneratedOrIsInCompilerGeneratedClass())
+			{
+				if (c.Arguments[0] is not LdLoc ldloc)
+					return false;
+				switchValue = ldloc;
+				return true;
+			}
+			return false;
 		}
 
 		/// <summary>

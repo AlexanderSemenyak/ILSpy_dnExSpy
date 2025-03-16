@@ -466,12 +466,17 @@ namespace ICSharpCode.Decompiler.CSharp
 		{
 			switch (p.ParameterModifier)
 			{
-				case ParameterModifier.Ref:
-					return new DirectionExpression(FieldDirection.Ref, new IdentifierExpression(p.Name));
-				case ParameterModifier.Out:
-					return new DirectionExpression(FieldDirection.Out, new IdentifierExpression(p.Name));
-				default:
+				case ReferenceKind.None:
 					return new IdentifierExpression(p.Name);
+				case ReferenceKind.Ref:
+				case ReferenceKind.RefReadOnly:
+					return new DirectionExpression(FieldDirection.Ref, new IdentifierExpression(p.Name));
+				case ReferenceKind.Out:
+					return new DirectionExpression(FieldDirection.Out, new IdentifierExpression(p.Name));
+				case ReferenceKind.In:
+					return new DirectionExpression(FieldDirection.In, new IdentifierExpression(p.Name));
+				default:
+					throw new NotSupportedException();
 			}
 		}
 
@@ -521,10 +526,10 @@ namespace ICSharpCode.Decompiler.CSharp
 			foreach (var parameter in entityDecl.GetChildrenByRole(Roles.Parameter))
 			{
 				var variable = parameter.Annotation<ILVariableResolveResult>()?.Variable;
-				if (variable != null && variable.HasNullCheck)
-				{
-					parameter.HasNullCheck = true;
-				}
+				// if (variable != null && variable.HasNullCheck)
+				// {
+				// 	parameter.HasNullCheck = true;
+				// }
 			}
 		}
 

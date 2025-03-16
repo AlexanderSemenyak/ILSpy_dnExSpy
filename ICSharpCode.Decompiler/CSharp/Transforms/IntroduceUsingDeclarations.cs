@@ -28,6 +28,7 @@ using dnSpy.Contracts.Text;
 using ICSharpCode.Decompiler.CSharp.Resolver;
 using ICSharpCode.Decompiler.CSharp.Syntax;
 using ICSharpCode.Decompiler.CSharp.TypeSystem;
+using ICSharpCode.Decompiler.IL;
 using ICSharpCode.Decompiler.Semantics;
 using ICSharpCode.Decompiler.TypeSystem;
 using ICSharpCode.Decompiler.TypeSystem.Implementation;
@@ -131,16 +132,8 @@ namespace ICSharpCode.Decompiler.CSharp.Transforms
 
 			public override void VisitSimpleType(SimpleType simpleType)
 			{
-				ITypeDefOrRef tr = simpleType.Annotation<ITypeDefOrRef>();
-				if (tr != null)
-				{
-					var sb = GetNamespace(tr);
-					if (!IsParentOfCurrentNamespace(sb))
-					{
-						string ns = sb.ToString();
-						ImportedNamespaces.Add(new NamespaceRef(tr.DefinitionAssembly, ns));
-					}
-				}
+				var trr = simpleType.Annotation<TypeResolveResult>();
+				AddImportedNamespace(trr?.Type);
 				base.VisitSimpleType(simpleType); // also visit type arguments
 			}
 
@@ -150,6 +143,17 @@ namespace ICSharpCode.Decompiler.CSharp.Transforms
 				if (type == null)
 					return this.stringBuilder;
 				return FullNameFactory.NamespaceSB(type, false, this.stringBuilder);
+			}
+
+			private void AddImportedNamespace(ICSharpCode.Decompiler.TypeSystem.IType type)
+			{
+				var dnType = type?.MetadataToken;
+				if (dnType is not null)
+				{
+					var sb = GetNamespace(dnType);
+					if (!IsParentOfCurrentNamespace(sb))
+						ImportedNamespaces.Add(new NamespaceRef(dnType.DefinitionAssembly, sb.ToString()));
+				}
 			}
 
 			public override void VisitNamespaceDeclaration(NamespaceDeclaration namespaceDeclaration)
@@ -162,6 +166,49 @@ namespace ICSharpCode.Decompiler.CSharp.Transforms
 				}
 				base.VisitNamespaceDeclaration(namespaceDeclaration);
 				currentNamespace = oldNamespace;
+			}
+
+			public override void VisitForeachStatement(ForeachStatement foreachStatement)
+			{
+				var annotation = foreachStatement.Annotation<ForeachAnnotation>();
+				if (annotation?.GetEnumeratorCall is CallInstruction { Method: { IsExtensionMethod: true, DeclaringType: var type } })
+				{
+					AddImportedNamespace(type);
+				}
+				base.VisitForeachStatement(foreachStatement);
+			}
+
+			public override void VisitParenthesizedVariableDesignation(ParenthesizedVariableDesignation parenthesizedVariableDesignation)
+			{
+				var annotation = parenthesizedVariableDesignation.Annotation<MatchInstruction>();
+				if (annotation?.Method is IMethod { DeclaringType: var type })
+				{
+					AddImportedNamespace(type);
+				}
+				base.VisitParenthesizedVariableDesignation(parenthesizedVariableDesignation);
+			}
+
+			public override void VisitTupleExpression(TupleExpression tupleExpression)
+			{
+				var annotation = tupleExpression.Annotation<MatchInstruction>();
+				if (annotation?.Method is IMethod { DeclaringType: var type })
+				{
+					AddImportedNamespace(type);
+				}
+				base.VisitTupleExpression(tupleExpression);
+			}
+
+			public override void VisitArrayInitializerExpression(ArrayInitializerExpression arrayInitializerExpression)
+			{
+				foreach (var item in arrayInitializerExpression.Elements)
+				{
+					var optionalCall = item.Annotation<CallInstruction>();
+					if (optionalCall?.Method is { IsExtensionMethod: true, Name: "Add" })
+					{
+						AddImportedNamespace(optionalCall.Method.DeclaringType);
+					}
+				}
+				base.VisitArrayInitializerExpression(arrayInitializerExpression);
 			}
 		}
 
