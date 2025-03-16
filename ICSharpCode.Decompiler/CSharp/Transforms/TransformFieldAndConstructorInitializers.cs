@@ -16,7 +16,6 @@
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using dnlib.DotNet;
@@ -26,7 +25,9 @@ using IMethod = ICSharpCode.Decompiler.TypeSystem.IMethod;
 using ICSharpCode.Decompiler.CSharp.Resolver;
 using ICSharpCode.Decompiler.CSharp.Syntax;
 using ICSharpCode.Decompiler.CSharp.Syntax.PatternMatching;
+using ICSharpCode.Decompiler.Semantics;
 using ICSharpCode.Decompiler.TypeSystem;
+using ICSharpCode.Decompiler.Util;
 
 namespace ICSharpCode.Decompiler.CSharp.Transforms
 {
@@ -37,10 +38,12 @@ namespace ICSharpCode.Decompiler.CSharp.Transforms
 	public class TransformFieldAndConstructorInitializers : DepthFirstAstVisitor, IAstTransform
 	{
 		TransformContext context;
+		Dictionary<IField, IL.ILVariable> fieldToVariableMap;
 
 		public void Run(AstNode node, TransformContext context)
 		{
 			this.context = context;
+			this.fieldToVariableMap = new();
 
 			try
 			{
@@ -56,6 +59,7 @@ namespace ICSharpCode.Decompiler.CSharp.Transforms
 			finally
 			{
 				this.context = null;
+				this.fieldToVariableMap = null;
 			}
 		}
 
@@ -131,6 +135,13 @@ namespace ICSharpCode.Decompiler.CSharp.Transforms
 					newBaseType.BaseType = baseType;
 					ci.Arguments.MoveTo(newBaseType.Arguments);
 				}
+				if (constructorDeclaration.Parent is TypeDeclaration { PrimaryConstructorParameters: var parameters })
+				{
+					foreach (var (cpd, ppd) in constructorDeclaration.Parameters.Zip(parameters))
+					{
+						ppd.CopyAnnotationsFrom(cpd);
+					}
+				}
 				constructorDeclaration.Remove();
 			}
 		}
@@ -179,11 +190,11 @@ namespace ICSharpCode.Decompiler.CSharp.Transforms
 
 				bool ctorIsUnsafe = instanceCtorsNotChainingWithThis.All(c => c.HasModifier(Modifiers.Unsafe));
 
-				if (!context.DecompileRun.RecordDecompilers.TryGetValue(ctorMethodDef.DeclaringTypeDefinition, out var record))
+				if (!context.DecompileRun.RecordDecompilers.TryGetValue(declaringTypeDefinition, out var record))
 					record = null;
 
 				// Filter out copy constructor of records
-				if (record != null)
+				if (record != null && declaringTypeDefinition.IsRecord)
 					instanceCtorsNotChainingWithThis = instanceCtorsNotChainingWithThis.Where(ctor => !record.IsCopyConstructor(ctor.GetSymbol() as IMethod)).ToArray();
 
 				// Recognize field or property initializers:
@@ -203,18 +214,19 @@ namespace ICSharpCode.Decompiler.CSharp.Transforms
 					if (fieldOrPropertyOrEventDecl is CustomEventDeclaration)
 						break;
 
-
 					Expression initializer = m.Get<Expression>("initializer").Single();
 					// 'this'/'base' cannot be used in initializers
 					if (initializer.DescendantsAndSelf.Any(n => n is ThisReferenceExpression || n is BaseReferenceExpression))
 						break;
-
-					if (initializer.Annotation<ILVariableResolveResult>()?.Variable.Kind == IL.VariableKind.Parameter)
+					var v = initializer.Annotation<ILVariableResolveResult>()?.Variable;
+					if (v?.Kind == IL.VariableKind.Parameter)
 					{
 						// remove record ctor parameter assignments
-						if (!IsPropertyDeclaredByPrimaryCtor(fieldOrPropertyOrEvent as IProperty, record))
+						if (!IsPropertyDeclaredByPrimaryCtor(fieldOrPropertyOrEvent, record))
 							break;
 						isStructPrimaryCtor = true;
+						if (fieldOrPropertyOrEvent is IField f)
+							fieldToVariableMap.Add(f, v);
 					}
 					else
 					{
@@ -264,11 +276,21 @@ namespace ICSharpCode.Decompiler.CSharp.Transforms
 			}
 		}
 
-		bool IsPropertyDeclaredByPrimaryCtor(IProperty p, RecordDecompiler record)
+		bool IsPropertyDeclaredByPrimaryCtor(IMember m, RecordDecompiler record)
 		{
-			if (p == null || record == null)
+			if (record == null)
 				return false;
-			return record.IsPropertyDeclaredByPrimaryConstructor(p);
+			switch (m)
+			{
+				case IProperty p:
+					return record.IsPropertyDeclaredByPrimaryConstructor(p);
+				case IField f:
+					return true;
+				case IEvent e:
+					return true;
+				default:
+					return false;
+			}
 		}
 
 		void RemoveSingleEmptyConstructor(IEnumerable<AstNode> members, ITypeDefinition contextTypeDefinition)
@@ -439,6 +461,21 @@ namespace ICSharpCode.Decompiler.CSharp.Transforms
 					}
 					return false;
 			}
+		}
+
+		public override void VisitIdentifier(Identifier identifier)
+		{
+			if (identifier.Parent?.GetSymbol() is not IField field)
+			{
+				return;
+			}
+			if (!fieldToVariableMap.TryGetValue(field, out var v))
+			{
+				return;
+			}
+			identifier.Parent.RemoveAnnotations<MemberResolveResult>();
+			identifier.Parent.AddAnnotation(new ILVariableResolveResult(v));
+			identifier.ReplaceWith(Identifier.Create(v.Name));
 		}
 	}
 }

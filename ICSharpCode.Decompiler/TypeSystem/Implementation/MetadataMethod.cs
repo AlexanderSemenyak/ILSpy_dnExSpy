@@ -526,14 +526,14 @@ namespace ICSharpCode.Decompiler.TypeSystem.Implementation
 		public override bool Equals(object obj)
 		{
 			if (obj is MetadataMethod m) {
-				return handle == m.handle && module.PEFile == m.module.PEFile;
+				return handle == m.handle && module.MetadataFile == m.module.MetadataFile;
 			}
 			return false;
 		}
 
 		public override int GetHashCode()
 		{
-			return 0x5a00d671 ^ module.PEFile.GetHashCode() ^ handle.GetHashCode();
+			return 0x5a00d671 ^ module.MetadataFile.GetHashCode() ^ handle.GetHashCode();
 		}
 
 		bool IMember.Equals(IMember obj, TypeVisitor typeNormalization)

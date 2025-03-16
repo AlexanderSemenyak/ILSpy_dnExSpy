@@ -62,7 +62,7 @@ namespace ICSharpCode.Decompiler.CSharp
 			if (entity == null || entity.MetadataToken is null)
 				return;
 			if (mappingInfo == null)
-				mappingInfo = CSharpDecompiler.GetCodeMappingInfo(entity.ParentModule.PEFile, entity.MetadataToken);
+				mappingInfo = CSharpDecompiler.GetCodeMappingInfo(entity.ParentModule.MetadataFile, entity.MetadataToken);
 			switch (entity) {
 				case ITypeDefinition td:
 					namespaces.Add(td.Namespace);

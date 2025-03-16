@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2022 Tom Englert
+﻿// Copyright (c) 2020 Siegfried Pammer
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy of this
 // software and associated documentation files (the "Software"), to deal in the Software
@@ -16,29 +16,26 @@
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 
-#nullable enable
-
 using System.Collections.Generic;
-using System.Reflection.Metadata;
+using System.IO;
 
 using ICSharpCode.Decompiler.Metadata;
 
-namespace ICSharpCode.Decompiler.Disassembler
+namespace ICSharpCode.Decompiler.CSharp.ProjectDecompiler
 {
-	public interface IEntityProcessor
+	/// <summary>
+	/// An interface for a service that creates and writes a project file structure
+	/// for a specific module being decompiled.
+	/// </summary>
+	public interface IProjectFileWriter
 	{
-		IReadOnlyCollection<InterfaceImplementationHandle> Process(PEFile module, IReadOnlyCollection<InterfaceImplementationHandle> items);
-
-		IReadOnlyCollection<TypeDefinitionHandle> Process(PEFile module, IReadOnlyCollection<TypeDefinitionHandle> items);
-
-		IReadOnlyCollection<MethodDefinitionHandle> Process(PEFile module, IReadOnlyCollection<MethodDefinitionHandle> items);
-
-		IReadOnlyCollection<PropertyDefinitionHandle> Process(PEFile module, IReadOnlyCollection<PropertyDefinitionHandle> items);
-
-		IReadOnlyCollection<EventDefinitionHandle> Process(PEFile module, IReadOnlyCollection<EventDefinitionHandle> items);
-
-		IReadOnlyCollection<FieldDefinitionHandle> Process(PEFile module, IReadOnlyCollection<FieldDefinitionHandle> items);
-
-		IReadOnlyCollection<CustomAttributeHandle> Process(PEFile module, IReadOnlyCollection<CustomAttributeHandle> items);
+		/// <summary>
+		/// Writes the content of a new project file for the specified <paramref name="module"/> being decompiled.
+		/// </summary>
+		/// <param name="target">The target to write to.</param>
+		/// <param name="project">The information about the project being created.</param>
+		/// <param name="files">A collection of source files to be included into the project.</param>
+		/// <param name="module">The module being decompiled.</param>
+		void Write(TextWriter target, IProjectInfoProvider project, IEnumerable<ProjectItemInfo> files, MetadataFile module);
 	}
 }

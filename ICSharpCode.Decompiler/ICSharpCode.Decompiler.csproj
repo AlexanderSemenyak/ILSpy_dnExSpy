@@ -18,6 +18,7 @@
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
     <Copyright>Copyright 2011-$([System.DateTime]::Now.Year) AlphaSierraPapa</Copyright>
     <PackageTags>C# Decompiler ILSpy</PackageTags>
+    <GenerateSBOM>true</GenerateSBOM>
 
     <NeutralLanguage>en-US</NeutralLanguage>
     <GenerateAssemblyVersionAttribute>False</GenerateAssemblyVersionAttribute>
@@ -32,7 +33,6 @@
     <NoWarn>1701;1702;1591;1573</NoWarn>
     <WarningsAsErrors>nullable</WarningsAsErrors>
 
-    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <DebugType>embedded</DebugType>
     <DebugSymbols>true</DebugSymbols>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
@@ -53,14 +53,27 @@
     <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
   </PropertyGroup>
 
-  <Import Project="..\packages.props" />
+  <!-- Inject ILSpyUpdateAssemblyInfo as dependency of the GetPackageVersion
+    target so Pack uses the generated version when evaluating project references. -->
+  <PropertyGroup>
+    <GetPackageVersionDependsOn>
+      ILSpyUpdateAssemblyInfo;
+      $(GetPackageVersionDependsOn)
+    </GetPackageVersionDependsOn>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+  </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="dnlib" Version="3.3.3" />
-    <PackageReference Include="System.ValueTuple" Version="4.3.0" />
-    <PackageReference Include="Microsoft.Win32.Registry" Version="5.0.0" />
+    <PackageReference Include="dnlib" Version="4.4.0" />
+    <PackageReference Include="Microsoft.Sbom.Targets" Version="3.0.1">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
     <PackageReference Include="System.Collections.Immutable" Version="6.0.0" />
-    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.1.1">
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
@@ -70,7 +83,7 @@
     <PackageReference Include="TunnelVisionLabs.ReferenceAssemblyAnnotator" Version="1.0.0-alpha.160" PrivateAssets="all" />
 
     <!-- Specifies the version of Microsoft.NETCore.App.Ref to obtain nullability information from. -->
-    <PackageDownload Include="Microsoft.NETCore.App.Ref" Version="[6.0.0]" />
+    <PackageDownload Include="Microsoft.NETCore.App.Ref" Version="[8.0.0]" />
   </ItemGroup>
 
   <ItemGroup>
@@ -79,6 +92,7 @@
     <Compile Include="CSharp\CSharpLanguageVersion.cs" />
     <Compile Include="CSharp\Syntax\Expressions\RecursivePatternExpression.cs" />
     <Compile Include="DecompilationProgress.cs" />
+    <Compile Include="Metadata\MetadataFile.cs" />
     <Compile Include="NRTAttributes.cs" />
     <Compile Include="PartialTypeInfo.cs" />
     <Compile Include="CSharp\OutputVisitor\GenericGrammarAmbiguityVisitor.cs" />
@@ -101,13 +115,10 @@
     <Compile Include="IL\Instructions\MatchInstruction.cs" />
     <Compile Include="IL\Transforms\IndexRangeTransform.cs" />
     <Compile Include="CSharp\TranslatedStatement.cs" />
-    <Compile Include="DebugInfo\KnownGuids.cs" />
-    <Compile Include="Documentation\XmlDocumentationElement.cs" />
     <Compile Include="IL\ControlFlow\AwaitInFinallyTransform.cs" />
     <Compile Include="IL\Transforms\InterpolatedStringTransform.cs" />
     <Compile Include="IL\Transforms\IntroduceNativeIntTypeOnLocals.cs" />
     <Compile Include="IL\Transforms\LdLocaDupInitObjTransform.cs" />
-    <Compile Include="IL\Transforms\ParameterNullCheckTransform.cs" />
     <Compile Include="IL\Transforms\PatternMatchingTransform.cs" />
     <Compile Include="IL\Transforms\RemoveInfeasiblePathTransform.cs" />
     <Compile Include="Instrumentation\DecompilerEventSource.cs" />
@@ -117,7 +128,6 @@
     <Compile Include="Util\Index.cs" />
     <None Include="Properties\DecompilerVersionInfo.template.cs" />
     <Compile Include="Semantics\OutVarResolveResult.cs" />
-    <Compile Include="SingleFileBundle.cs" />
     <Compile Include="Solution\ProjectId.cs" />
     <Compile Include="Solution\ProjectItem.cs" />
     <Compile Include="Solution\SolutionCreator.cs" />
@@ -301,7 +311,6 @@
     <Compile Include="DecompilerException.cs" />
     <Compile Include="DecompilerSettings.cs" />
     <Compile Include="CSharp\Transforms\ContextTrackingVisitor.cs" />
-    <Compile Include="CSharp\Transforms\DecimalConstantTransform.cs" />
     <Compile Include="CSharp\Transforms\DeclareVariables.cs" />
     <Compile Include="CSharp\Transforms\EscapeInvalidIdentifiers.cs" />
     <Compile Include="CSharp\Transforms\FixNameCollisions.cs" />
@@ -347,7 +356,6 @@
     <Compile Include="Metadata\LightJson\Serialization\JsonReader.cs" />
     <Compile Include="Metadata\LightJson\Serialization\TextPosition.cs" />
     <Compile Include="Metadata\LightJson\Serialization\TextScanner.cs" />
-    <Compile Include="Metadata\PEFile.cs" />
     <Compile Include="Metadata\UniversalAssemblyResolver.cs" />
     <Compile Include="Metadata\UnresolvedAssemblyNameReference.cs" />
     <Compile Include="IL\Instructions\DynamicInstructions.cs" />
@@ -428,7 +436,6 @@
     <Compile Include="TypeSystem\TupleType.cs" />
     <Compile Include="Util\CustomAttributeSerializationHelper.cs" />
     <Compile Include="Util\FileUtility.cs" />
-    <Compile Include="Util\GraphVizGraph.cs" />
     <Compile Include="Util\KeyComparer.cs" />
     <Compile Include="Util\LongDict.cs" />
     <Compile Include="Util\ResourcesFile.cs" />
@@ -640,5 +647,4 @@
   <ItemGroup>
     <Service Include="{508349b6-6b84-4df5-91f0-309beebad82d}" />
   </ItemGroup>
-
 </Project>

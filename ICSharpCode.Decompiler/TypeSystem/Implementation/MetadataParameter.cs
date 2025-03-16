@@ -53,7 +53,7 @@ namespace ICSharpCode.Decompiler.TypeSystem.Implementation
 		{
 			var b = new AttributeListBuilder(module);
 
-			bool defaultValueAssignmentAllowed = ReferenceKind is ReferenceKind.None or ReferenceKind.In;
+			bool defaultValueAssignmentAllowed = ReferenceKind is ReferenceKind.None or ReferenceKind.In or ReferenceKind.RefReadOnly;
 
 			if (IsOptional && (!defaultValueAssignmentAllowed || !HasConstantValueInSignature))
 			{
@@ -65,20 +65,16 @@ namespace ICSharpCode.Decompiler.TypeSystem.Implementation
 				b.Add(KnownAttribute.DefaultParameterValue, KnownTypeCode.Object, GetConstantValue(throwOnInvalidMetadata: false));
 			}
 
-			if (!IsOut && !IsIn) {
-				if (handle.HasParamDef) {
-					if (handle.ParamDef.IsIn)
-						b.Add(KnownAttribute.In);
-					if (handle.ParamDef.IsOut)
-						b.Add(KnownAttribute.Out);
-				}
-			}
+
+			if ((attributes & ParamAttributes.In) == ParamAttributes.In && ReferenceKind is not (ReferenceKind.In or ReferenceKind.RefReadOnly))
+				b.Add(KnownAttribute.In);
+			if ((attributes & ParamAttributes.Out) == ParamAttributes.Out && ReferenceKind != ReferenceKind.Out)
+				b.Add(KnownAttribute.Out);
 
 			if (handle.HasParamDef) {
 				b.Add(handle.ParamDef.CustomAttributes, SymbolKind.Parameter);
 				b.AddMarshalInfo(handle.ParamDef.MarshalType);
 			}
-
 			return b.Build();
 		}
 		#endregion
@@ -86,9 +82,6 @@ namespace ICSharpCode.Decompiler.TypeSystem.Implementation
 		const ParamAttributes inOut = ParamAttributes.In | ParamAttributes.Out;
 
 		public ReferenceKind ReferenceKind => DetectRefKind();
-		public bool IsRef => DetectRefKind() == ReferenceKind.Ref;
-		public bool IsOut => Type.Kind == TypeKind.ByReference && (attributes & inOut) == ParamAttributes.Out;
-		public bool IsIn => DetectRefKind() == ReferenceKind.In;
 
 		public bool IsOptional => (attributes & ParamAttributes.Optional) != 0;
 
@@ -101,6 +94,12 @@ namespace ICSharpCode.Decompiler.TypeSystem.Implementation
 			if ((module.TypeSystemOptions & TypeSystemOptions.ReadOnlyStructsAndParameters) != 0) {
 				if (handle.HasParamDef && handle.ParamDef.CustomAttributes.HasKnownAttribute(KnownAttribute.IsReadOnly))
 					return ReferenceKind.In;
+			}
+			if ((module.TypeSystemOptions & TypeSystemOptions.RefReadOnlyParameters) != 0
+				&& (attributes & inOut) == ParamAttributes.In)
+			{
+				if (handle.HasParamDef && handle.ParamDef.CustomAttributes.HasKnownAttribute(KnownAttribute.RequiresLocation))
+					return ReferenceKind.RefReadOnly;
 			}
 			return ReferenceKind.Ref;
 		}

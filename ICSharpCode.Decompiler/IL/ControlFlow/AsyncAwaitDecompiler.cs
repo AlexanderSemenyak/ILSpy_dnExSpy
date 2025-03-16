@@ -28,8 +28,8 @@ using IType = ICSharpCode.Decompiler.TypeSystem.IType;
 
 using ICSharpCode.Decompiler.CSharp;
 using ICSharpCode.Decompiler.IL.Transforms;
+using ICSharpCode.Decompiler.Metadata;
 using ICSharpCode.Decompiler.TypeSystem;
-using ICSharpCode.Decompiler.TypeSystem.Implementation;
 using ICSharpCode.Decompiler.Util;
 
 namespace ICSharpCode.Decompiler.IL.ControlFlow

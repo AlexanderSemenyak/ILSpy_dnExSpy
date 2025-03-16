@@ -3,7 +3,7 @@ This is a modified version of ICSharpCode.Decompiler used by [dnSpyEx](https://g
 To make it easier to port the decompiler and its tests have been seperated out!
 
 
-# ILSpy [![NuGet](https://img.shields.io/nuget/v/ICSharpCode.Decompiler.svg)](https://nuget.org/packages/ICSharpCode.Decompiler) ![Build ILSpy](https://github.com/icsharpcode/ILSpy/workflows/Build%20ILSpy/badge.svg?branch=master) [![Mastodon Follow](https://img.shields.io/badge/dynamic/json?label=Mastodon&query=totalItems&url=https%3A%2F%2Fhachyderm.io%2Fusers%2Filspy%2Ffollowers.json&logo=mastodon&style=flat-square)](https://hachyderm.io/@ilspy) [![Twitter Follow](https://img.shields.io/twitter/follow/ILSpy.svg?label=Follow%20@ILSpy)](https://twitter.com/ilspy) [![ILSpy VS extension](https://img.shields.io/badge/VS%20Extension-ILSpy-blue.svg)](https://visualstudiogallery.msdn.microsoft.com/8ef1d688-f80c-4380-8004-2ec7f814e7de) 
+# ILSpy [![NuGet](https://img.shields.io/nuget/v/ICSharpCode.Decompiler.svg)](https://nuget.org/packages/ICSharpCode.Decompiler) ![Build ILSpy](https://github.com/icsharpcode/ILSpy/workflows/Build%20ILSpy/badge.svg?branch=master) [![Mastodon](https://img.shields.io/badge/dynamic/json?label=Mastodon&query=totalItems&url=https%3A%2F%2Fhachyderm.io%2Fusers%2Filspy%2Ffollowers.json&logo=mastodon&style=flat-square)](https://hachyderm.io/@ilspy) [![Bluesky](https://img.shields.io/badge/Bluesky-0285FF?logo=bluesky&logoColor=fff)](https://bsky.app/profile/ilspy.bsky.social) [![ILSpy VS extension](https://img.shields.io/badge/VS%20Extension-ILSpy-blue.svg)](https://visualstudiogallery.msdn.microsoft.com/8ef1d688-f80c-4380-8004-2ec7f814e7de) 
 
 ILSpy is the open-source .NET assembly browser and decompiler.
 
@@ -14,7 +14,7 @@ Decompiler Frontends
 
 Aside from the WPF UI ILSpy (downloadable via Releases, see also [plugins](https://github.com/icsharpcode/ILSpy/wiki/Plugins)), the following other frontends are available:
 
-* Visual Studio 2022 ships with decompilation support for F12 enabled by default (using our engine v7.1).
+* Visual Studio 2022 ships with decompilation support for F12 enabled by default (using our engine v8.1).
 * In Visual Studio 2019, you have to manually enable F12 support. Go to Tools / Options / Text Editor / C# / Advanced and check "Enable navigation to decompiled source"
 * [C# for Visual Studio Code](https://marketplace.visualstudio.com/items?itemName=ms-dotnettools.csharp) ships with decompilation support as well. To enable, activate the setting "Enable Decompilation Support".
 * Our Visual Studio 2022 extension [marketplace](https://marketplace.visualstudio.com/items?itemName=SharpDevelopTeam.ILSpy2022)
@@ -50,14 +50,14 @@ How to build
 
 #### Windows:
 
-- Make sure PowerShell (at least version) 5.0 is installed.
+- Make sure Windows PowerShell (at least version) 5.0 or [PowerShell](https://github.com/PowerShell/PowerShell) 7+ is installed.
 - Clone the ILSpy repository using git.
 - Execute `git submodule update --init --recursive` to download the ILSpy-Tests submodule (used by some test cases).
-- Install Visual Studio (documented version: 17.1). You can install the necessary components in one of 3 ways:
+- Install Visual Studio (documented version: 17.8). You can install the necessary components in one of 3 ways:
   - Follow Microsoft's instructions for [importing a configuration](https://docs.microsoft.com/en-us/visualstudio/install/import-export-installation-configurations?view=vs-2022#import-a-configuration), and import the .vsconfig file located at the root of the solution.
   - Alternatively, you can open the ILSpy solution (ILSpy.sln) and Visual Studio will [prompt you to install the missing components](https://docs.microsoft.com/en-us/visualstudio/install/import-export-installation-configurations?view=vs-2022#automatically-install-missing-components).
   - Finally, you can manually install the necessary components via the Visual Studio Installer. The workloads/components are as follows:
-    - Workload ".NET Desktop Development". This workload includes the .NET Framework 4.8 SDK and the .NET Framework 4.7.2 targeting pack, as well as the [.NET 6.0 SDK](https://dotnet.microsoft.com/download/dotnet/6.0) and [.NET 7.0 SDK](https://dotnet.microsoft.com/download/dotnet/7.0) (ILSpy.csproj targets .NET 6.0, but we have net472+net70 projects too). _Note: The optional components of this workload are not required for ILSpy_
+    - Workload ".NET Desktop Development". This workload includes the .NET Framework 4.8 SDK and the .NET Framework 4.7.2 targeting pack, as well as the [.NET 8.0 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) (ILSpy.csproj targets .NET 8.0, but we have net472 projects too). _Note: The optional components of this workload are not required for ILSpy_
     - Workload "Visual Studio extension development" (ILSpy.sln contains a VS extension project) _Note: The optional components of this workload are not required for ILSpy_
     - Individual Component "MSVC v143 - VS 2022 C++ x64/x86 build tools" (or similar)
       - _The VC++ toolset is optional_; if present it is used for `editbin.exe` to modify the stack size used by ILSpy.exe from 1MB to 16MB, because the decompiler makes heavy use of recursion, where small stack sizes lead to problems in very complex methods.
@@ -71,12 +71,12 @@ How to build
       - ILSpy.AddIn.slnf: for the Visual Studio plugin
 
 **Note:** Visual Studio includes a version of the .NET SDK that is managed by the Visual Studio installer - once you update, it may get upgraded too.
-Please note that ILSpy is only compatible with the .NET 6.0 SDK and Visual Studio will refuse to load some projects in the solution (and unit tests will fail). 
-If this problem occurs, please manually install the .NET 6.0 SDK from [here](https://dotnet.microsoft.com/download/dotnet/6.0).
+Please note that ILSpy is only compatible with the .NET 8.0 SDK and Visual Studio will refuse to load some projects in the solution (and unit tests will fail). 
+If this problem occurs, please manually install the .NET 8.0 SDK from [here](https://dotnet.microsoft.com/download/dotnet/8.0).
 
 #### Unix / Mac:
 
-- Make sure [.NET 7.0 SDK](https://dotnet.microsoft.com/download/dotnet/7.0) is installed.
+- Make sure [.NET 8.0 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) is installed.
 - Make sure [PowerShell](https://github.com/PowerShell/PowerShell) is installed (formerly known as PowerShell Core)
 - Clone the repository using git.
 - Execute `git submodule update --init --recursive` to download the ILSpy-Tests submodule (used by some test cases).

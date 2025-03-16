@@ -91,7 +91,6 @@ namespace ICSharpCode.Decompiler.CSharp
 				new InlineReturnTransform(), // must run before DetectPinnedRegions
 				new RemoveInfeasiblePathTransform(),
 				new DetectPinnedRegions(), // must run after inlining but before non-critical control flow transforms
-				new ParameterNullCheckTransform(), // must run after inlining but before yield/async
 				new YieldReturnDecompiler(), // must run after inlining but before loop detection
 				new AsyncAwaitDecompiler(),  // must run after inlining but before loop detection
 				new DetectCatchWhenConditionBlocks(), // must run after inlining but before loop detection
@@ -185,7 +184,6 @@ namespace ICSharpCode.Decompiler.CSharp
 				new AddCheckedBlocks(),
 				new DeclareVariables(), // should run after most transforms that modify statements
 				new TransformFieldAndConstructorInitializers(), // must run after DeclareVariables
-				new DecimalConstantTransform(),
 				new PrettifyAssignments(), // must run after DeclareVariables
 				new IntroduceUsingDeclarations(),
 				new IntroduceExtensionMethods(), // must run after IntroduceUsingDeclarations
@@ -244,14 +242,14 @@ namespace ICSharpCode.Decompiler.CSharp
 		/// Creates a new <see cref="CSharpDecompiler"/> instance from the given <paramref name="module"/> and <paramref name="settings"/>.
 		/// </summary>
 		public CSharpDecompiler(ModuleDef module, DecompilerSettings settings)
-			: this(new PEFile(module), settings)
+			: this(new MetadataFile(module), settings)
 		{
 		}
 
 		/// <summary>
 		/// Creates a new <see cref="CSharpDecompiler"/> instance from the given <paramref name="module"/> and <paramref name="settings"/>.
 		/// </summary>
-		public CSharpDecompiler(PEFile module, DecompilerSettings settings)
+		public CSharpDecompiler(MetadataFile module, DecompilerSettings settings)
 			: this(new DecompilerTypeSystem(module, settings), settings)
 		{
 		}
@@ -323,6 +321,8 @@ namespace ICSharpCode.Decompiler.CSharp
 				if (field.IsCompilerGenerated()) {
 					if (settings.AnonymousMethods && IsAnonymousMethodCacheField(field))
 						return true;
+					if (settings.UsePrimaryConstructorSyntaxForNonRecordTypes && IsPrimaryConstructorParameterBackingField(field))
+						return true;
 					if (settings.AutomaticProperties && IsAutomaticPropertyBackingField(field, out var propertyName))
 					{
 						if (!settings.GetterOnlyAutomaticProperties && IsGetterOnlyProperty(propertyName))
@@ -369,6 +369,11 @@ namespace ICSharpCode.Decompiler.CSharp
 			}
 
 			return false;
+		}
+
+		static bool IsPrimaryConstructorParameterBackingField(FieldDef field)
+		{
+			return field.Name.StartsWith("<", StringComparison.Ordinal) && field.Name.EndsWith(">P", StringComparison.Ordinal);
 		}
 
 		static bool IsSwitchOnStringCache(dnlib.DotNet.IField field)
@@ -493,7 +498,7 @@ namespace ICSharpCode.Decompiler.CSharp
 		{
 			try
 			{
-				return XmlDocLoader.LoadDocumentation(module.PEFile.Module);
+				return XmlDocLoader.LoadDocumentation(module.MetadataFile.Metadata);
 			}
 			catch (System.Xml.XmlException)
 			{
@@ -648,7 +653,7 @@ namespace ICSharpCode.Decompiler.CSharp
 		/// <summary>
 		/// Determines the "code-mappings" for a given TypeDef or MethodDef. See <see cref="CodeMappingInfo"/> for more information.
 		/// </summary>
-		public static CodeMappingInfo GetCodeMappingInfo(PEFile module, IMemberDef member)
+		public static CodeMappingInfo GetCodeMappingInfo(MetadataFile module, IMemberDef member)
 		{
 			TypeDef declaringType = member.DeclaringType;
 			if (declaringType is null && member is TypeDef def) {
@@ -1031,7 +1036,7 @@ namespace ICSharpCode.Decompiler.CSharp
 										 Roles.Comment);
 				var forwardingCall = new InvocationExpression(new MemberReferenceExpression(new ThisReferenceExpression(), memberDecl.Name,
 					methodDecl.TypeParameters.Select(tp => new SimpleType(tp.Name))),
-					methodDecl.Parameters.Select(p => ForwardParameter(p))
+					methodDecl.Parameters.Select(ForwardParameter)
 				);
 				if (m.ReturnType.IsKnownType(KnownTypeCode.Void))
 				{
@@ -1049,12 +1054,17 @@ namespace ICSharpCode.Decompiler.CSharp
 		{
 			switch (p.ParameterModifier)
 			{
-				case ParameterModifier.Ref:
-					return new DirectionExpression(FieldDirection.Ref, new IdentifierExpression(p.Name));
-				case ParameterModifier.Out:
-					return new DirectionExpression(FieldDirection.Out, new IdentifierExpression(p.Name));
-				default:
+				case ReferenceKind.None:
 					return new IdentifierExpression(p.Name);
+				case ReferenceKind.Ref:
+				case ReferenceKind.RefReadOnly:
+					return new DirectionExpression(FieldDirection.Ref, new IdentifierExpression(p.Name));
+				case ReferenceKind.Out:
+					return new DirectionExpression(FieldDirection.Out, new IdentifierExpression(p.Name));
+				case ReferenceKind.In:
+					return new DirectionExpression(FieldDirection.In, new IdentifierExpression(p.Name));
+				default:
+					throw new NotSupportedException();
 			}
 		}
 
@@ -1154,12 +1164,12 @@ namespace ICSharpCode.Decompiler.CSharp
 					// e.g. DelegateDeclaration
 					return entityDecl;
 				}
-				bool isRecord = typeDef.Kind switch {
-					TypeKind.Class => settings.RecordClasses && typeDef.IsRecord,
-					TypeKind.Struct => settings.RecordStructs && typeDef.IsRecord,
+				bool isRecordLike = typeDef.Kind switch {
+					TypeKind.Class => (settings.RecordClasses && typeDef.IsRecord) || settings.UsePrimaryConstructorSyntaxForNonRecordTypes,
+					TypeKind.Struct => (settings.RecordStructs && typeDef.IsRecord) || settings.UsePrimaryConstructorSyntaxForNonRecordTypes,
 					_ => false,
 				};
-				RecordDecompiler recordDecompiler = isRecord ? new RecordDecompiler(typeSystem, typeDef, settings, CancellationToken) : null;
+				RecordDecompiler recordDecompiler = isRecordLike ? new RecordDecompiler(typeSystem, typeDef, settings, CancellationToken) : null;
 				if (recordDecompiler != null)
 					decompileRun.RecordDecompilers.Add(typeDef, recordDecompiler);
 
@@ -1169,33 +1179,41 @@ namespace ICSharpCode.Decompiler.CSharp
 					{
 						ParameterDeclaration pd = typeSystemAstBuilder.ConvertParameter(p);
 						(IProperty prop, ICSharpCode.Decompiler.TypeSystem.IField field) = recordDecompiler.GetPropertyInfoByPrimaryConstructorParameter(p);
-						Syntax.Attribute[] attributes = prop.GetAttributes().Select(attr => typeSystemAstBuilder.ConvertAttribute(attr)).ToArray();
-						if (attributes.Length > 0)
+
+						if (prop != null)
 						{
-							var section = new AttributeSection {
-								AttributeTarget = "property"
-							};
-							section.Attributes.AddRange(attributes);
-							pd.Attributes.Add(section);
+							var attributes = prop?.GetAttributes().Select(attr => typeSystemAstBuilder.ConvertAttribute(attr)).ToArray();
+							if (attributes?.Length > 0)
+							{
+								var section = new AttributeSection {
+									AttributeTarget = "property"
+								};
+								section.Attributes.AddRange(attributes);
+								pd.Attributes.Add(section);
+							}
 						}
-						attributes = field.GetAttributes()
-							.Where(a => !PatternStatementTransform.attributeTypesToRemoveFromAutoProperties.Contains(a.AttributeType.FullName))
-							.Select(attr => typeSystemAstBuilder.ConvertAttribute(attr)).ToArray();
-						if (attributes.Length > 0)
+						if (field != null && (recordDecompiler.FieldIsGenerated(field) || typeDef.IsRecord))
 						{
-							var section = new AttributeSection {
-								AttributeTarget = "field"
-							};
-							section.Attributes.AddRange(attributes);
-							pd.Attributes.Add(section);
+							var attributes = field.GetAttributes()
+								.Where(a => !PatternStatementTransform.attributeTypesToRemoveFromAutoProperties.Contains(a.AttributeType.FullName))
+								.Select(attr => typeSystemAstBuilder.ConvertAttribute(attr)).ToArray();
+							if (attributes.Length > 0)
+							{
+								var section = new AttributeSection {
+									AttributeTarget = "field"
+								};
+								section.Attributes.AddRange(attributes);
+								pd.Attributes.Add(section);
+							}
 						}
 						typeDecl.PrimaryConstructorParameters.Add(pd);
 					}
 				}
 
 				// With C# 9 records, the relative order of fields and properties matters:
-				IEnumerable<IMember> fieldsAndProperties = recordDecompiler?.FieldsAndProperties
-					?? typeDef.Fields.Concat<IMember>(typeDef.Properties);
+				IEnumerable<IMember> fieldsAndProperties = isRecordLike && typeDef.IsRecord
+					? recordDecompiler.FieldsAndProperties
+					: typeDef.Fields.Concat<IMember>(typeDef.Properties);
 
 				// For COM interop scenarios, the relative order of virtual functions/properties matters:
 				IEnumerable<IMember> allOrderedMembers = RequiresNativeOrdering(typeDef) ? GetMembersWithNativeOrdering(typeDef) :
@@ -1324,6 +1342,10 @@ namespace ICSharpCode.Decompiler.CSharp
 				{
 					case ICSharpCode.Decompiler.TypeSystem.IField field:
 						if (typeDef.Kind == TypeKind.Enum && !field.IsConst)
+						{
+							return;
+						}
+						if (recordDecompiler?.FieldIsGenerated(field) == true)
 						{
 							return;
 						}
@@ -1457,7 +1479,7 @@ namespace ICSharpCode.Decompiler.CSharp
 				}
 				FixParameterNames(methodDecl);
 				var methodDefinition = (MethodDef)method.MetadataToken;
-				if (!settings.LocalFunctions && LocalFunctionDecompiler.LocalFunctionNeedsAccessibilityChange(null, methodDefinition))
+				if (!settings.LocalFunctions && LocalFunctionDecompiler.LocalFunctionNeedsAccessibilityChange(method.ParentModule.MetadataFile, methodDefinition))
 				{
 					// if local functions are not active and we're dealing with a local function,
 					// reduce the visibility of the method to private,
@@ -1643,14 +1665,6 @@ namespace ICSharpCode.Decompiler.CSharp
 				entityDecl.Modifiers |= Modifiers.Async;
 				RemoveAttribute(entityDecl, KnownAttribute.AsyncStateMachine);
 				RemoveAttribute(entityDecl, KnownAttribute.DebuggerStepThrough);
-			}
-			foreach (var parameter in entityDecl.GetChildrenByRole(Roles.Parameter))
-			{
-				var variable = parameter.Annotation<ILVariableResolveResult>()?.Variable;
-				if (variable != null && variable.HasNullCheck)
-				{
-					parameter.HasNullCheck = true;
-				}
 			}
 		}
 

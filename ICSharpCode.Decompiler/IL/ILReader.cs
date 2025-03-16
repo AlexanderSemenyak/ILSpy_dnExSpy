@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2014 Daniel Grunwald
+// Copyright (c) 2014 Daniel Grunwald
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy of this
 // software and associated documentation files (the "Software"), to deal in the Software
@@ -247,6 +247,13 @@ namespace ICSharpCode.Decompiler.IL
 			VariableKind kind = IsPinned(v.Type) ? VariableKind.PinnedLocal : VariableKind.Local;
 
 			IType localType = module.IntroduceTupleTypes(v.Type.DecodeSignature(module, genericContext));
+
+			if (UseDebugSymbols && DebugInfo is not null &&
+				DebugInfo.TryGetExtraTypeInfo(methodDef, v.Index, out var pdbExtraTypeInfo))
+			{
+				localType = ApplyAttributeTypeVisitor.ApplyAttributesToType(localType, compilation, module.TypeSystemOptions, pdbExtraTypeInfo);
+			}
+
 			if (kind == VariableKind.PinnedLocal && localType.SkipModifiers() is PinnedType pinnedType)
 				localType = pinnedType.ElementType;
 
@@ -302,7 +309,7 @@ namespace ICSharpCode.Decompiler.IL
 			{
 				var param = method.Parameters[p.MethodSigIndex];
 				parameterType = param.Type;
-				isRefReadOnly = param.IsIn;
+				isRefReadOnly = param.ReferenceKind is ReferenceKind.In or ReferenceKind.RefReadOnly;
 			}
 
 			Debug.Assert(!parameterType.IsUnbound());

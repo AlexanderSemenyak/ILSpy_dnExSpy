@@ -1434,7 +1434,7 @@ namespace ICSharpCode.Decompiler.IL.ControlFlow
 				ITypeDefinition declaringTypeDefinition = call.Method.DeclaringTypeDefinition;
 				if (declaringTypeDefinition.MetadataToken != this.enumeratorType)
 					return false;
-				if (declaringTypeDefinition.ParentModule.PEFile.Module != metadata)
+				if (declaringTypeDefinition.ParentModule.MetadataFile.Metadata != metadata)
 					return false;
 				finallyMethod = call.Method;
 				return call.Method.MetadataToken is not null;

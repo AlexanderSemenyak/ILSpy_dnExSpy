@@ -22,12 +22,23 @@ using System.Runtime.Serialization;
 namespace ICSharpCode.Decompiler.Metadata
 {
 	[Serializable]
-	public class PEFileNotSupportedException : Exception
+	public class EnumUnderlyingTypeResolveException : Exception
 	{
-		public PEFileNotSupportedException() { }
-		public PEFileNotSupportedException(string message) : base(message) { }
-		public PEFileNotSupportedException(string message, Exception inner) : base(message, inner) { }
-		protected PEFileNotSupportedException(
+		public EnumUnderlyingTypeResolveException() { }
+		public EnumUnderlyingTypeResolveException(string message) : base(message) { }
+		public EnumUnderlyingTypeResolveException(string message, Exception inner) : base(message, inner) { }
+		protected EnumUnderlyingTypeResolveException(
+		  SerializationInfo info,
+		  StreamingContext context) : base(info, context) { }
+	}
+
+	[Serializable]
+	public class MetadataFileNotSupportedException : Exception
+	{
+		public MetadataFileNotSupportedException() { }
+		public MetadataFileNotSupportedException(string message) : base(message) { }
+		public MetadataFileNotSupportedException(string message, Exception inner) : base(message, inner) { }
+		protected MetadataFileNotSupportedException(
 		  SerializationInfo info,
 		  StreamingContext context) : base(info, context) { }
 	}

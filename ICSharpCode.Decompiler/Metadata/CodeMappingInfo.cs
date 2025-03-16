@@ -33,7 +33,7 @@ namespace ICSharpCode.Decompiler.Metadata
 		/// <summary>
 		/// The module containing the code.
 		/// </summary>
-		public PEFile Module { get; }
+		public MetadataFile Module { get; }
 
 		/// <summary>
 		/// The (parent) TypeDef containing the code.
@@ -46,7 +46,7 @@ namespace ICSharpCode.Decompiler.Metadata
 		/// <summary>
 		/// Creates a <see cref="CodeMappingInfo"/> instance using the given <paramref name="module"/> and <paramref name="type"/>.
 		/// </summary>
-		public CodeMappingInfo(PEFile module, TypeDef type)
+		public CodeMappingInfo(MetadataFile module, TypeDef type)
 		{
 			this.Module = module;
 			this.TypeDefinition = type;

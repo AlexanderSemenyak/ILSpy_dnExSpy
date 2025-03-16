@@ -45,8 +45,8 @@ namespace ICSharpCode.Decompiler.Tests
 				if (file.Extension.Equals(".vb", StringComparison.OrdinalIgnoreCase))
 				{
 					var testName = file.Name.Split('.')[0];
-					Assert.Contains(testName, testNames);
-					Assert.IsTrue(File.Exists(Path.Combine(TestCasePath, testName + ".cs")));
+					Assert.That(testNames, Has.Member(testName));
+					Assert.That(File.Exists(Path.Combine(TestCasePath, testName + ".cs")));
 				}
 			}
 		}
@@ -147,7 +147,7 @@ namespace ICSharpCode.Decompiler.Tests
 		{
 			var vbFile = Path.Combine(TestCasePath, testName + ".vb");
 			var csFile = Path.Combine(TestCasePath, testName + ".cs");
-			var exeFile = Path.Combine(TestCasePath, testName) + Tester.GetSuffix(options) + ".exe";
+			var exeFile = TestsAssemblyOutput.GetFilePath(TestCasePath, testName, Tester.GetSuffix(options) + ".exe");
 			if (options.HasFlag(CompilerOptions.Library))
 			{
 				exeFile = Path.ChangeExtension(exeFile, ".dll");

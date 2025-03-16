@@ -121,8 +121,6 @@ namespace ICSharpCode.Decompiler.TypeSystem
 		/// will be reported as custom attribute.
 		/// </summary>
 		ScopedRef = 0x4000,
-		[Obsolete("Use ScopedRef instead")]
-		LifetimeAnnotations = ScopedRef,
 		/// <summary>
 		/// Replace 'IntPtr' types with the 'nint' type even in absence of [NativeIntegerAttribute].
 		/// Note: DecompilerTypeSystem constructor removes this setting from the options if
@@ -130,11 +128,19 @@ namespace ICSharpCode.Decompiler.TypeSystem
 		/// </summary>
 		NativeIntegersWithoutAttribute = 0x8000,
 		/// <summary>
+		/// If this option is active, [RequiresLocationAttribute] on parameters is removed
+		/// and parameters are marked as ref readonly.
+		/// Otherwise, the attribute is preserved but the parameters are not marked
+		/// as if it was a ref parameter without any attributes.
+		/// </summary>
+		RefReadOnlyParameters = 0x10000,
+		/// <summary>
 		/// Default settings: typical options for the decompiler, with all C# languages features enabled.
 		/// </summary>
 		Default = Dynamic | Tuple | ExtensionMethods | DecimalConstants | ReadOnlyStructsAndParameters
 			| RefStructs | UnmanagedConstraints | NullabilityAnnotations | ReadOnlyMethods
 			| NativeIntegers | FunctionPointers | ScopedRef | NativeIntegersWithoutAttribute
+			| RefReadOnlyParameters
 	}
 
 	/// <summary>
@@ -174,15 +180,17 @@ namespace ICSharpCode.Decompiler.TypeSystem
 				typeSystemOptions |= TypeSystemOptions.ScopedRef;
 			if (settings.NumericIntPtr)
 				typeSystemOptions |= TypeSystemOptions.NativeIntegersWithoutAttribute;
+			if (settings.RefReadOnlyParameters)
+				typeSystemOptions |= TypeSystemOptions.RefReadOnlyParameters;
 			return typeSystemOptions;
 		}
 
-		public DecompilerTypeSystem(PEFile mainModule)
+		public DecompilerTypeSystem(MetadataFile mainModule)
 			: this(mainModule, TypeSystemOptions.Default)
 		{
 		}
 
-		public DecompilerTypeSystem(PEFile mainModule, DecompilerSettings settings)
+		public DecompilerTypeSystem(MetadataFile mainModule, DecompilerSettings settings)
 			: this(mainModule, GetOptions(settings ?? throw new ArgumentNullException(nameof(settings))))
 		{
 		}
@@ -192,17 +200,17 @@ namespace ICSharpCode.Decompiler.TypeSystem
 			"System.Runtime.CompilerServices.Unsafe"
 		};
 
-		public DecompilerTypeSystem(PEFile mainModule, TypeSystemOptions typeSystemOptions)
+		public DecompilerTypeSystem(MetadataFile mainModule, TypeSystemOptions typeSystemOptions)
 		{
 			if (mainModule == null)
 				throw new ArgumentNullException(nameof(mainModule));
 			// Load referenced assemblies and type-forwarder references.
 			// This is necessary to make .NET Core/PCL binaries work better.
-			var moduleDefinition = mainModule.Module;
-			var referencedAssemblies = new List<PEFile>();
+			var moduleDefinition = mainModule.Metadata;
+			var referencedAssemblies = new List<MetadataFile>();
 			var assemblyReferenceQueue = new Queue<IAssembly>(moduleDefinition.GetAssemblyRefs());
 			var processedAssemblyReferences = new HashSet<IAssembly>(AssemblyNameComparer.CompareAll);
-			var tfm = mainModule.Module.DetectTargetFrameworkId();
+			var tfm = mainModule.Metadata.DetectTargetFrameworkId();
 			var (identifier, version) = UniversalAssemblyResolver.ParseTargetFramework(tfm);
 			while (assemblyReferenceQueue.Count > 0) {
 				var asmRef = assemblyReferenceQueue.Dequeue();
@@ -210,7 +218,7 @@ namespace ICSharpCode.Decompiler.TypeSystem
 					continue;
 				var asm = moduleDefinition.Context.AssemblyResolver.Resolve(asmRef, moduleDefinition);
 				if (asm != null) {
-					referencedAssemblies.Add(new PEFile(asm.ManifestModule));
+					referencedAssemblies.Add(new MetadataFile(asm.ManifestModule));
 					foreach (var forwarder in asm.ManifestModule.ExportedTypes) {
 						if (!forwarder.IsForwarder || !(forwarder.Scope is IAssembly forwarderRef)) continue;
 						assemblyReferenceQueue.Enqueue(forwarderRef);
@@ -243,14 +251,42 @@ namespace ICSharpCode.Decompiler.TypeSystem
 				typeSystemOptions &= ~TypeSystemOptions.NativeIntegersWithoutAttribute;
 			}
 			var mainModuleWithOptions = mainModule.WithOptions(typeSystemOptions);
-			var referencedAssembliesWithOptions = referencedAssemblies.Select(file => file.WithOptions(typeSystemOptions));
+			// create IModuleReferences for all references
+			var referencedAssembliesWithOptions = new List<IModuleReference>(referencedAssemblies.Count);
+			Dictionary<string, (Version version, int insertionIndex)> referenceAssemblyVersionMap = new();
+			foreach (var file in referencedAssemblies)
+			{
+				// if the file is an assembly, we need to make sure to deduplicate all assemblies,
+				// with the same name, but different version. We keep the highest version number.
+				if (file.IsAssembly)
+				{
+					var newFileVersion = file.Metadata.Assembly.Version;
+					if (referenceAssemblyVersionMap.TryGetValue(file.Name, out var info))
+					{
+						if (newFileVersion >= info.version)
+						{
+							referencedAssembliesWithOptions[info.insertionIndex] = file.WithOptions(typeSystemOptions);
+							referenceAssemblyVersionMap[file.Name] = (newFileVersion, info.insertionIndex);
+						}
+						continue;
+					}
+					else
+					{
+						referenceAssemblyVersionMap[file.Name] = (file.Metadata.Assembly.Version, referencedAssembliesWithOptions.Count);
+					}
+				}
+				referencedAssembliesWithOptions.Add(file.WithOptions(typeSystemOptions));
+			}
 			// Primitive types are necessary to avoid assertions in ILReader.
 			// Other known types are necessary in order for transforms to work (e.g. Task<T> for async transform).
 			// Figure out which known types are missing from our type system so far:
 			var missingKnownTypes = KnownTypeReference.AllKnownTypes.Where(IsMissing).ToList();
-			if (missingKnownTypes.Count > 0) {
-				Init(mainModule.WithOptions(typeSystemOptions), referencedAssembliesWithOptions.Concat(new[] { MinimalCorlib.CreateWithTypes(missingKnownTypes) }));
-			} else {
+			if (missingKnownTypes.Count > 0)
+			{
+				Init(mainModuleWithOptions, referencedAssembliesWithOptions.Concat(new[] { MinimalCorlib.CreateWithTypes(missingKnownTypes) }));
+			}
+			else
+			{
 				Init(mainModuleWithOptions, referencedAssembliesWithOptions);
 			}
 			this.MainModule = (MetadataModule)base.MainModule;

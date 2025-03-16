@@ -79,7 +79,7 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 			// Disable the transform if we are decompiling a display-class or local function method:
 			// This happens if a local function or display class is selected in the ILSpy tree view.
 			if (IsLocalFunctionMethod(function.Method, context) || IsLocalFunctionDisplayClass(
-					function.Method.ParentModule.PEFile,
+					function.Method.ParentModule.MetadataFile,
 					(TypeDef)function.Method.DeclaringTypeDefinition.MetadataToken,
 					context)
 				)
@@ -553,9 +553,9 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 
 		internal static bool IsClosureParameter(IParameter parameter, ITypeResolveContext context)
 		{
-			if (!parameter.IsRef)
+			if (parameter.Type is not ByReferenceType brt)
 				return false;
-			var type = ((ByReferenceType)parameter.Type).ElementType.GetDefinition();
+			var type = brt.ElementType.GetDefinition();
 			return type != null
 				&& type.Kind == TypeKind.Struct
 				&& TransformDisplayClassUsage.IsPotentialClosure(context.CurrentTypeDefinition, type);
@@ -752,10 +752,10 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 		{
 			if (method.MetadataToken is null)
 				return false;
-			return IsLocalFunctionMethod(method.ParentModule.PEFile, (MethodDef)method.MetadataToken, context);
+			return IsLocalFunctionMethod(method.ParentModule.MetadataFile, (MethodDef)method.MetadataToken, context);
 		}
 
-		public static bool IsLocalFunctionMethod(PEFile module, MethodDef method, ILTransformContext context = null)
+		public static bool IsLocalFunctionMethod(MetadataFile module, MethodDef method, ILTransformContext context = null)
 		{
 			if (context != null && context.PEFile != module)
 				return false;
@@ -770,7 +770,7 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 			return true;
 		}
 
-		public static bool LocalFunctionNeedsAccessibilityChange(PEFile module, MethodDef method)
+		public static bool LocalFunctionNeedsAccessibilityChange(MetadataFile module, MethodDef method)
 		{
 			if (!IsLocalFunctionMethod(module, method))
 				return false;
@@ -790,7 +790,7 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 			return false;
 		}
 
-		public static bool IsLocalFunctionDisplayClass(PEFile module, TypeDef type, ILTransformContext context = null)
+		public static bool IsLocalFunctionDisplayClass(MetadataFile module, TypeDef type, ILTransformContext context = null)
 		{
 			if (context != null && context.PEFile != module)
 				return false;

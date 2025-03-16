@@ -229,7 +229,7 @@ namespace ICSharpCode.Decompiler.TypeSystem
 		/// * any enum type
 		/// * any pointer type
 		/// * any user-defined struct type that is not a constructed (= generic) type and contains fields of unmanaged types only.
-		/// 
+		///
 		/// C# 8.0 removes the restriction that constructed (= generic) types are not considered unmanaged types.
 		/// </remarks>
 		public static bool IsUnmanagedType(this IType type, bool allowGenerics)
@@ -699,12 +699,13 @@ namespace ICSharpCode.Decompiler.TypeSystem
 		public static bool IsDirectImportOf(this ITypeDefinition type, IModule module)
 		{
 			var moduleReference = type.ParentModule;
-			foreach (var asmRef in module.PEFile.Module.GetAssemblyRefs()) {
+			foreach (var asmRef in module.MetadataFile.Metadata.GetAssemblyRefs())
+			{
 				if (asmRef.FullName == moduleReference.FullAssemblyName)
 					return true;
 				if (asmRef.Name == "netstandard" && !dnlib.DotNet.PublicKeyBase.IsNullOrEmpty2(asmRef.PublicKeyOrToken)) {
 					var referencedModule = module.Compilation.FindModuleByReference(asmRef);
-					if (referencedModule != null && referencedModule.PEFile.GetTypeForwarder(type.FullTypeName) != null)
+					if (referencedModule != null && referencedModule.MetadataFile.GetTypeForwarder(type.FullTypeName) != null)
 						return true;
 				}
 			}

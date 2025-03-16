@@ -218,7 +218,6 @@ namespace ICSharpCode.Decompiler.TypeSystem.Implementation
 					return methods;
 				var methodsCollection = handle.Methods;
 				var methodsList = new List<IMethod>(methodsCollection.Count);
-
 				bool hasDefaultCtor = false;
 				foreach (MethodDef md in methodsCollection)
 				{
@@ -476,14 +475,14 @@ namespace ICSharpCode.Decompiler.TypeSystem.Implementation
 		public override bool Equals(object obj)
 		{
 			if (obj is MetadataTypeDefinition td) {
-				return handle == td.handle && module.PEFile == td.module.PEFile;
+				return handle == td.handle && module.MetadataFile == td.module.MetadataFile;
 			}
 			return false;
 		}
 
 		public override int GetHashCode()
 		{
-			return 0x2e0520f2 ^ module.PEFile.GetHashCode() ^ handle.GetHashCode();
+			return 0x2e0520f2 ^ module.MetadataFile.GetHashCode() ^ handle.GetHashCode();
 		}
 
 		bool IEquatable<IType>.Equals(IType other)

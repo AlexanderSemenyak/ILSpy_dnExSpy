@@ -16,7 +16,6 @@
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 using System;
-using System.Collections.Generic;
 
 using ICSharpCode.Decompiler.Documentation;
 using ICSharpCode.Decompiler.TypeSystem;
@@ -90,14 +89,6 @@ namespace ICSharpCode.Decompiler
 					ContainsAnonType = true;
 				return base.VisitTypeDefinition(type);
 			}
-		}
-
-		internal static string GetDocumentation(this IEntity entity)
-		{
-			var docProvider = XmlDocLoader.LoadDocumentation(entity.ParentModule.PEFile.Module);
-			if (docProvider == null)
-				return null;
-			return docProvider.GetDocumentation(entity);
 		}
 	}
 }

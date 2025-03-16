@@ -1,8 +1,29 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
+// Copyright (c) 2018 Siegfried Pammer
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy of this
+// software and associated documentation files (the "Software"), to deal in the Software
+// without restriction, including without limitation the rights to use, copy, modify, merge,
+// publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons
+// to whom the Software is furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all copies or
+// substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+// INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
+// PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
+// FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+// OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+// DEALINGS IN THE SOFTWARE.
+
+using System;
 using System.Text.RegularExpressions;
 using dnlib.DotNet;
+
+using ICSharpCode.Decompiler.TypeSystem;
 
 namespace ICSharpCode.Decompiler.Metadata
 {
@@ -127,6 +148,59 @@ namespace ICSharpCode.Decompiler.Metadata
 			}
 
 			return string.Empty;
+		}
+
+		public static bool IsReferenceAssembly(this MetadataFile assembly)
+		{
+			return IsReferenceAssembly(assembly.Metadata, assembly.FileName);
+		}
+
+		public static bool IsReferenceAssembly(this ModuleDef metadata, string assemblyPath)
+		{
+			if (metadata == null)
+				throw new ArgumentNullException(nameof(metadata));
+
+			if (metadata.Assembly.CustomAttributes.HasKnownAttribute(KnownAttribute.ReferenceAssembly))
+				return true;
+
+			// Try to detect reference assembly through specific path pattern
+			var refPathMatch = Regex.Match(assemblyPath, RefPathPattern, RegexOptions.IgnoreCase | RegexOptions.Compiled);
+			return refPathMatch.Success;
+		}
+
+		public static string DetectRuntimePack(this MetadataFile assembly)
+		{
+			if (assembly is null)
+			{
+				throw new ArgumentNullException(nameof(assembly));
+			}
+
+			var metadata = assembly.Metadata;
+
+			foreach (var reference in metadata.GetAssemblyRefs())
+			{
+				if (reference.PublicKeyOrToken.IsNullOrEmpty)
+					continue;
+
+				if ((reference.Name == "WindowsBase"))
+				{
+					return "Microsoft.WindowsDesktop.App";
+				}
+
+				if ((reference.Name == "PresentationFramework"))
+				{
+					return "Microsoft.WindowsDesktop.App";
+				}
+
+				if ((reference.Name == "PresentationCore"))
+				{
+					return "Microsoft.WindowsDesktop.App";
+				}
+
+				// TODO add support for ASP.NET Core
+			}
+
+			return "Microsoft.NETCore.App";
 		}
 	}
 }
