@@ -221,9 +221,13 @@ namespace ICSharpCode.Decompiler.CSharp
 					{
 						backingMember = property;
 					}
-					else
+					else if (!recordTypeDef.IsRecord)
 					{
 						backingMember = field;
+					}
+					else
+					{
+						return false;
 					}
 
 					primaryCtorParameterToAutoPropertyOrBackingField.Add(unspecializedMethod.Parameters[i], backingMember);

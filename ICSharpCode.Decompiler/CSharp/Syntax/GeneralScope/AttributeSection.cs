@@ -96,7 +96,8 @@ namespace ICSharpCode.Decompiler.CSharp.Syntax
 			}
 			set {
 				var id = Identifier.Create(value);
-				id.AddAnnotation(BoxedTextColor.Keyword);
+				if (value is not null)
+					id.AddAnnotation(BoxedTextColor.Keyword);
 				SetChildByRole(Roles.Identifier, id);
 			}
 		}

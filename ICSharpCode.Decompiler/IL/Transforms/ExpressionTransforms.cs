@@ -339,6 +339,12 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 				replacement.AcceptVisitor(this);
 				return;
 			}
+			if (TransformArrayInitializers.TransformRuntimeHelpersCreateSpanInitialization(inst, context, out var replacement2))
+			{
+				context.Step("TransformRuntimeHelpersCreateSpanInitialization: single-dim", inst);
+				inst.ReplaceWith(replacement2);
+				return;
+			}
 			base.VisitCall(inst);
 			TransformAssignment.HandleCompoundAssign(inst, context);
 		}
@@ -532,6 +538,28 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 				if (context.CalculateILSpans)
 					inst.AddSelfAndChildrenRecursiveILSpans(decimalConstant.ILSpans);
 				inst.ReplaceWith(decimalConstant);
+				return;
+			}
+		}
+
+		protected internal override void VisitLdObjIfRef(LdObjIfRef inst)
+		{
+			base.VisitLdObjIfRef(inst);
+			if (inst.Target is AddressOf)
+			{
+				context.Step("ldobj.if.ref(addressof(...)) -> addressof(...)", inst);
+				// there already is a temporary, so the ldobj.if.ref is a no-op in both cases
+				inst.ReplaceWith(inst.Target);
+				return;
+			}
+			if (inst.Target.MatchLdLoc(out var s) && s.IsSingleDefinition && s.LoadCount == 1
+				&& s.StoreInstructions.SingleOrDefault() is StLoc {
+					Value: LdLoca { Variable: { AddressCount: 1, StoreCount: 1 } }
+				})
+			{
+				context.Step("Single use of ldobj.if.ref(ldloc v) -> ldloc v", inst);
+				// there already is a temporary, so the ldobj.if.ref is a no-op in both cases
+				inst.ReplaceWith(inst.Target);
 				return;
 			}
 		}

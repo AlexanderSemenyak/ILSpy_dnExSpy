@@ -134,28 +134,57 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 			replacement = null;
 			if (!context.Settings.ArrayInitializers)
 				return false;
-			if (MatchSpanTCtorWithPointerAndSize(inst, context, out var elementType, out var field, out var size))
+			if (!MatchSpanTCtorWithPointerAndSize(inst, context, out var elementType, out var field, out var size))
+				return false;
+			if (field.InitialValue is null)
+				return false;
+			var initialValue = field.InitialValue;
+			replacement = DecodeArrayInitializerOrUTF8StringLiteral(context, elementType, initialValue, size);
+			return replacement != null;
+		}
+
+		internal static bool TransformRuntimeHelpersCreateSpanInitialization(Call inst, StatementTransformContext context, out ILInstruction replacement)
+		{
+			replacement = null;
+			if (!context.Settings.ArrayInitializers)
+				return false;
+			if (!MatchRuntimeHelpersCreateSpan(inst, context, out var elementType, out var field))
+				return false;
+			if (field.InitialValue is null)
+				return false;
+			if (IsSubPatternOfCpblkInitializer(inst))
+				return false;
+			var initialValue = field.InitialValue;
+			var elementTypeSize = elementType.GetSize();
+			if (elementTypeSize <= 0 || initialValue.Length % elementTypeSize != 0)
+				return false;
+			var size = initialValue.Length / elementTypeSize;
+			replacement = DecodeArrayInitializerOrUTF8StringLiteral(context, elementType, initialValue, size);
+			return replacement != null;
+		}
+
+		private static bool IsSubPatternOfCpblkInitializer(Call inst)
+		{
+			if (inst.Parent is not AddressOf { Parent: Call { Parent: Cpblk cpblk } get_Item })
+				return false;
+			return MatchGetStaticFieldAddress(get_Item, out _);
+		}
+
+		private static ILInstruction DecodeArrayInitializerOrUTF8StringLiteral(StatementTransformContext context, IType elementType, byte[] initialValue, int size)
+		{
+			if (context.Settings.Utf8StringLiterals && elementType.IsKnownType(KnownTypeCode.Byte)
+				&& DecodeUTF8String(initialValue, size, out string text))
 			{
-				if (field != null && field.InitialValue != null)
-				{
-					var valuesList = new List<ILInstruction>();
-					var initialValue = field.InitialValue;
-					if (context.Settings.Utf8StringLiterals &&
-						elementType.IsKnownType(KnownTypeCode.Byte) &&
-						DecodeUTF8String(initialValue, size, out string text))
-					{
-						replacement = new LdStrUtf8(text);
-						return true;
-					}
-					if (DecodeArrayInitializer(elementType, initialValue, new[] { size }, valuesList))
-					{
-						var tempStore = context.Function.RegisterVariable(VariableKind.InitializerTarget, new ArrayType(context.TypeSystem, elementType));
-						replacement = BlockFromInitializer(context, tempStore, elementType, new[] { size }, valuesList.ToArray());
-						return true;
-					}
-				}
+				return new LdStrUtf8(text);
 			}
-			return false;
+			var valuesList = new List<ILInstruction>();
+			if (DecodeArrayInitializer(elementType, initialValue, new[] { size }, valuesList))
+			{
+				var tempStore = context.Function.RegisterVariable(VariableKind.InitializerTarget, new ArrayType(context.TypeSystem, elementType));
+				return BlockFromInitializer(context, tempStore, elementType, new[] { size }, valuesList.ToArray());
+			}
+
+			return null;
 		}
 
 		private static unsafe bool DecodeUTF8String(byte[] blob, int size, out string text)
@@ -168,9 +197,13 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 			for (int i = 0; i < size; i++)
 			{
 				byte val = blob[i];
-				// If the string has control characters, it's probably binary data and not a string.
-				if (val < 0x20 && val is not ((byte)'\r' or (byte)'\n' or (byte)'\t'))
+				if (val == 0 && i == size - 1 && size > 1)
 				{
+					// Allow explicit null-termination character.
+				}
+				else if (val < 0x20 && val is not ((byte)'\r' or (byte)'\n' or (byte)'\t'))
+				{
+					// If the string has control characters, it's probably binary data and not a string.
 					text = null;
 					return false;
 				}
@@ -195,6 +228,23 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 			if (!newObj.Arguments[0].UnwrapConv(ConversionKind.StopGCTracking).MatchLdsFlda(out var member))
 				return false;
 			if (!newObj.Arguments[1].MatchLdcI4(out size))
+				return false;
+			field = member.MetadataToken as dnlib.DotNet.FieldDef;
+			return true;
+		}
+
+		static bool MatchRuntimeHelpersCreateSpan(Call inst, StatementTransformContext context, out IType elementType, out dnlib.DotNet.FieldDef field)
+		{
+			field = default;
+			elementType = null;
+			if (!IsRuntimeHelpers(inst.Method.DeclaringType))
+				return false;
+			if (inst.Arguments.Count != 1)
+				return false;
+			if (inst.Method is not { Name: "CreateSpan", TypeArguments: [var type] })
+				return false;
+			elementType = type;
+			if (!inst.Arguments[0].UnwrapConv(ConversionKind.StopGCTracking).MatchLdMemberToken(out var member))
 				return false;
 			field = member.MetadataToken as dnlib.DotNet.FieldDef;
 			return true;
@@ -364,7 +414,7 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 			return true;
 		}
 
-		bool MatchGetStaticFieldAddress(ILInstruction input, out TypeSystem.IField field)
+		static bool MatchGetStaticFieldAddress(ILInstruction input, out TypeSystem.IField field)
 		{
 			if (input.MatchLdsFlda(out field))
 				return true;
@@ -387,7 +437,7 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 			return field != null;
 		}
 
-		static bool IsRuntimeHelpers(IType type) => type is { Name: "RuntimeHelpers", Namespace: "System.Runtime.CompilerServices" };
+		static bool IsRuntimeHelpers(IType type) => type is { Name: "RuntimeHelpers", Namespace: "System.Runtime.CompilerServices", TypeParameterCount: 0 };
 
 		unsafe bool HandleSequentialLocAllocInitializer(Block block, int pos, ILVariable store, ILInstruction locAllocInstruction, out IType elementType, out StObj[] values, out int instructionsToRemove)
 		{

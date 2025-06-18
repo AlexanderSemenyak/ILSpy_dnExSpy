@@ -82,7 +82,8 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 		{
 			return new ILReader(TypeSystem.MainModule) {
 				UseDebugSymbols = Settings.UseDebugSymbols,
-				CalculateILSpans = CalculateILSpans
+				CalculateILSpans = CalculateILSpans,
+				UseRefLocalsForAccurateOrderOfEvaluation = Settings.UseRefLocalsForAccurateOrderOfEvaluation,
 			};
 		}
 

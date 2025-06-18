@@ -124,6 +124,7 @@ namespace ICSharpCode.Decompiler.IL
 		readonly dnlib.DotNet.ModuleDef metadata;
 
 		public bool UseDebugSymbols { get; set; }
+		public bool UseRefLocalsForAccurateOrderOfEvaluation { get; set; }
 		public List<string> Warnings { get; } = new List<string>();
 
 		// List of candidate locations for sequence points. Includes empty il stack locations, any nop instructions, and the instruction following
@@ -290,7 +291,10 @@ namespace ICSharpCode.Decompiler.IL
 			if (p.IsHiddenThisParameter)
 				ilVar.Name = "this";
 			else if (string.IsNullOrWhiteSpace(p.Name))
+			{
 				ilVar.Name = "P_" + p.MethodSigIndex;
+				ilVar.HasGeneratedName = true;
+			}
 			else
 				ilVar.Name = p.Name;
 			return ilVar;
@@ -665,6 +669,7 @@ namespace ICSharpCode.Decompiler.IL
 			var function = new ILFunction(this.method, methodDef, this.genericContext, mainContainer, kind);
 			function.Variables.AddRange(parameterVariables);
 			function.Variables.AddRange(localVariables);
+			function.LocalVariableSignatureLength = localVariables.Length;
 			Debug2.Assert(stackVariables != null);
 			function.Variables.AddRange(stackVariables);
 			function.Variables.AddRange(variableByExceptionHandler.Values);
@@ -1726,15 +1731,37 @@ namespace ICSharpCode.Decompiler.IL
 			{
 				int firstArgument = (opCode != OpCode.NewObj && !method.IsStatic) ? 1 : 0;
 				var arguments = new ILInstruction[firstArgument + method.Parameters.Count];
+				IType typeOfThis = constrainedPrefix ?? method.DeclaringType;
+				StackType expectedStackType = CallInstruction.ExpectedTypeForThisPointer(method.DeclaringType, constrainedPrefix);
+				bool requiresLdObjIfRef = firstArgument == 1
+					&& !firstArgumentIsStObjTarget
+					&& UseRefLocalsForAccurateOrderOfEvaluation
+					&& expectedStackType == StackType.Ref && typeOfThis.IsReferenceType != false;
 				for (int i = method.Parameters.Count - 1; i >= 0; i--)
 				{
+					if (requiresLdObjIfRef)
+					{
+						FlushExpressionStack();
+					}
+
 					arguments[firstArgument + i] = Pop(method.Parameters[i].Type.GetStackType());
 				}
 				if (firstArgument == 1)
 				{
-					arguments[0] = firstArgumentIsStObjTarget
-						? PopStObjTarget()
-						: Pop(CallInstruction.ExpectedTypeForThisPointer(constrainedPrefix ?? method.DeclaringType));
+					ILInstruction firstArgumentInstruction;
+					if (firstArgumentIsStObjTarget)
+					{
+						firstArgumentInstruction = PopStObjTarget();
+					}
+					else
+					{
+						firstArgumentInstruction = Pop(expectedStackType);
+						if (requiresLdObjIfRef)
+						{
+							firstArgumentInstruction = new LdObjIfRef(firstArgumentInstruction, typeOfThis);
+						}
+					}
+					arguments[0] = firstArgumentInstruction;
 				}
 				// arguments is in reverse order of the Pop calls, thus
 				// arguments is now in the correct evaluation order.

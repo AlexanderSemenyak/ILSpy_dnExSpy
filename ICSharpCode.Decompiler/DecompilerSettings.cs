@@ -103,7 +103,6 @@ namespace ICSharpCode.Decompiler
 				stringInterpolation = false;
 				dictionaryInitializers = false;
 				extensionMethodsInCollectionInitializers = false;
-				useRefLocalsForAccurateOrderOfEvaluation = false;
 				getterOnlyAutomaticProperties = false;
 			}
 			if (languageVersion < CSharp.LanguageVersion.CSharp7)
@@ -116,6 +115,7 @@ namespace ICSharpCode.Decompiler
 				localFunctions = false;
 				deconstruction = false;
 				patternMatching = false;
+				useRefLocalsForAccurateOrderOfEvaluation = false;
 			}
 			if (languageVersion < CSharp.LanguageVersion.CSharp7_2)
 			{
@@ -123,6 +123,7 @@ namespace ICSharpCode.Decompiler
 				introduceRefModifiersOnStructs = false;
 				nonTrailingNamedArguments = false;
 				refExtensionMethods = false;
+				introducePrivateProtectedAccessibilty = false;
 			}
 			if (languageVersion < CSharp.LanguageVersion.CSharp7_3)
 			{
@@ -196,15 +197,15 @@ namespace ICSharpCode.Decompiler
 				|| patternBasedFixedStatement)
 				return CSharp.LanguageVersion.CSharp7_3;
 			if (introduceRefModifiersOnStructs || introduceReadonlyAndInModifiers
-				|| nonTrailingNamedArguments || refExtensionMethods)
+				|| nonTrailingNamedArguments || refExtensionMethods || introducePrivateProtectedAccessibilty)
 				return CSharp.LanguageVersion.CSharp7_2;
 			// C# 7.1 missing
 			if (outVariables || throwExpressions || tupleTypes || tupleConversions
-				|| discards || localFunctions || deconstruction || patternMatching)
+				|| discards || localFunctions || deconstruction || patternMatching || useRefLocalsForAccurateOrderOfEvaluation)
 				return CSharp.LanguageVersion.CSharp7;
 			if (awaitInCatchFinally || useExpressionBodyForCalculatedGetterOnlyProperties || nullPropagation
 				|| stringInterpolation || dictionaryInitializers || extensionMethodsInCollectionInitializers
-				|| useRefLocalsForAccurateOrderOfEvaluation || getterOnlyAutomaticProperties)
+				|| getterOnlyAutomaticProperties)
 				return CSharp.LanguageVersion.CSharp6;
 			if (asyncAwait)
 				return CSharp.LanguageVersion.CSharp5;
@@ -1192,7 +1193,7 @@ namespace ICSharpCode.Decompiler
 		/// order of evaluation.
 		/// See https://github.com/icsharpcode/ILSpy/issues/2050
 		/// </summary>
-		[Category("C# 6.0 / VS 2015")]
+		[Category("C# 7.0 / VS 2017")]
 		[Description("DecompilerSettings.UseRefLocalsForAccurateOrderOfEvaluation")]
 		public bool UseRefLocalsForAccurateOrderOfEvaluation {
 			get { return useRefLocalsForAccurateOrderOfEvaluation; }
@@ -1438,6 +1439,24 @@ namespace ICSharpCode.Decompiler
 				if (introduceReadonlyAndInModifiers != value)
 				{
 					introduceReadonlyAndInModifiers = value;
+					OnPropertyChanged();
+				}
+			}
+		}
+
+		bool introducePrivateProtectedAccessibilty = true;
+
+		/// <summary>
+		/// Gets/Sets whether "private protected" should be used.
+		/// </summary>
+		[Category("C# 7.2 / VS 2017.4")]
+		[Description("DecompilerSettings.IntroducePrivateProtectedAccessibility")]
+		public bool IntroducePrivateProtectedAccessibility {
+			get { return introducePrivateProtectedAccessibilty; }
+			set {
+				if (introducePrivateProtectedAccessibilty != value)
+				{
+					introducePrivateProtectedAccessibilty = value;
 					OnPropertyChanged();
 				}
 			}

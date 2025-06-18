@@ -362,11 +362,18 @@ namespace ICSharpCode.Decompiler.CSharp
 			}
 			else
 			{
+				var thisArg = callArguments.FirstOrDefault();
+				if (thisArg is LdObjIfRef ldObjIfRef)
+				{
+					Debug.Assert(constrainedTo != null);
+					thisArg = ldObjIfRef.Target;
+				}
 				target = expressionBuilder.TranslateTarget(
-					callArguments.FirstOrDefault(),
+					thisArg,
 					nonVirtualInvocation: callOpCode == OpCode.Call || method.IsConstructor,
 					memberStatic: method.IsStatic,
-					memberDeclaringType: constrainedTo ?? method.DeclaringType);
+					memberDeclaringType: method.DeclaringType,
+					constrainedTo: constrainedTo);
 				if (constrainedTo == null
 					&& target.Expression is CastExpression cast
 					&& target.ResolveResult is ConversionResolveResult conversion
@@ -1058,7 +1065,10 @@ namespace ICSharpCode.Decompiler.CSharp
 
 		bool IsOptionalArgument(IParameter parameter, TranslatedExpression arg)
 		{
-			if (!parameter.IsOptional || !arg.ResolveResult.IsCompileTimeConstant)
+			if (!parameter.IsOptional)
+				return false;
+
+			if (!arg.ResolveResult.IsCompileTimeConstant && arg.ResolveResult is not ConversionResolveResult { Conversion.IsNullLiteralConversion: true })
 				return false;
 			if (parameter.GetAttributes().Any(a => a.AttributeType.IsKnownType(KnownAttribute.CallerMemberName)
 				|| a.AttributeType.IsKnownType(KnownAttribute.CallerFilePath)

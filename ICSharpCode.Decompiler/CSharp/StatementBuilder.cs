@@ -1461,6 +1461,16 @@ namespace ICSharpCode.Decompiler.CSharp
 				method.RemoveAnnotations<dnlib.DotNet.IMethod>();
 				method.AddAnnotation(function.DnlibMethod);
 
+				var variables = function.Variables.Where(v => v.Kind == VariableKind.Parameter).ToDictionary(v => v.Index);
+
+				foreach (var (i, p) in method.Parameters.WithIndex())
+				{
+					if (variables.TryGetValue(i, out var v))
+					{
+						p.Name = v.Name;
+					}
+				}
+
 				if (function.Method.HasBody)
 				{
 					var nestedBuilder = new StatementBuilder(

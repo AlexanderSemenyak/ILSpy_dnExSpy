@@ -327,9 +327,9 @@ namespace ICSharpCode.Decompiler.CSharp.Transforms
 				case IProperty p:
 					return record.IsPropertyDeclaredByPrimaryConstructor(p);
 				case IField f:
-					return true;
+					return record.PrimaryConstructor != null;
 				case IEvent e:
-					return true;
+					return record.PrimaryConstructor != null;
 				default:
 					return false;
 			}

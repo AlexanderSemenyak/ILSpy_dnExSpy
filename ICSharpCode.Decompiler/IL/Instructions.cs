@@ -165,6 +165,8 @@ namespace ICSharpCode.Decompiler.IL
 		IsInst,
 		/// <summary>Indirect load (ref/pointer dereference).</summary>
 		LdObj,
+		/// <summary>If argument is a ref to a reference type, loads the object reference, stores it in a temporary, and evaluates to the address of that temporary (address.of(ldobj(arg))). Otherwise, returns the argument ref as-is.<para>This instruction represents the memory-load semantics of callvirt with a generic type as receiver (where the IL always takes a ref, but only methods on value types expect one, for method on reference types there's an implicit ldobj, which this instruction makes explicit in order to preserve the order-of-evaluation).</para></summary>
+		LdObjIfRef,
 		/// <summary>Indirect store (store to ref/pointer).
 		/// Evaluates to the value that was stored (when using type byte/short: evaluates to the truncated value, sign/zero extended back to I4 based on type.GetSign())</summary>
 		StObj,
@@ -261,21 +263,24 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override ILInstruction GetChild(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				default:
 					throw new IndexOutOfRangeException();
 			}
 		}
 		protected sealed override void SetChild(int index, ILInstruction value)
 		{
-			switch (index) {
+			switch (index)
+			{
 				default:
 					throw new IndexOutOfRangeException();
 			}
 		}
 		protected sealed override SlotInfo GetChildSlot(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				default:
 					throw new IndexOutOfRangeException();
 			}
@@ -320,7 +325,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override ILInstruction GetChild(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return this.argument;
 				default:
@@ -329,7 +335,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override void SetChild(int index, ILInstruction value)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					this.Argument = value;
 					break;
@@ -339,7 +346,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override SlotInfo GetChildSlot(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return ArgumentSlot;
 				default:
@@ -405,7 +413,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override ILInstruction GetChild(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return this.left;
 				case 1:
@@ -416,7 +425,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override void SetChild(int index, ILInstruction value)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					this.Left = value;
 					break;
@@ -429,7 +439,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override SlotInfo GetChildSlot(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return LeftSlot;
 				case 1:
@@ -480,14 +491,16 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override ILInstruction GetChild(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				default:
 					return this.Arguments[index - 0];
 			}
 		}
 		protected sealed override void SetChild(int index, ILInstruction value)
 		{
-			switch (index) {
+			switch (index)
+			{
 				default:
 					this.Arguments[index - 0] = (ILInstruction)value;
 					break;
@@ -495,7 +508,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override SlotInfo GetChildSlot(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				default:
 					return ArgumentsSlot;
 			}
@@ -558,7 +572,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override ILInstruction GetChild(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return this.target;
 				case 1:
@@ -569,7 +584,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override void SetChild(int index, ILInstruction value)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					this.Target = value;
 					break;
@@ -582,7 +598,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override SlotInfo GetChildSlot(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return TargetSlot;
 				case 1:
@@ -764,7 +781,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override ILInstruction GetChild(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return this.body;
 				default:
@@ -773,7 +791,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override void SetChild(int index, ILInstruction value)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					this.Body = value;
 					break;
@@ -784,7 +803,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override SlotInfo GetChildSlot(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return BodySlot;
 				default:
@@ -894,26 +914,26 @@ namespace ICSharpCode.Decompiler.IL
 					variable.AddStoreInstruction(this);
 			}
 		}
-
+		
 		public int IndexInStoreInstructionList { get; set; } = -1;
-
+		
 		int IInstructionWithVariableOperand.IndexInVariableInstructionMapping {
 			get { return ((IStoreInstruction)this).IndexInStoreInstructionList; }
 			set { ((IStoreInstruction)this).IndexInStoreInstructionList = value; }
 		}
-
+		
 		protected override void Connected()
 		{
 			base.Connected();
 			variable.AddStoreInstruction(this);
 		}
-
+		
 		protected override void Disconnected()
 		{
 			variable.RemoveStoreInstruction(this);
 			base.Disconnected();
 		}
-
+		
 		public static readonly SlotInfo InitSlot = new SlotInfo("Init", canInlineInto: true);
 		ILInstruction init = null!;
 		public ILInstruction Init {
@@ -938,7 +958,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override ILInstruction GetChild(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return this.init;
 				case 1:
@@ -949,7 +970,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override void SetChild(int index, ILInstruction value)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					this.Init = value;
 					break;
@@ -962,7 +984,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override SlotInfo GetChildSlot(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return InitSlot;
 				case 1:
@@ -1257,7 +1280,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override ILInstruction GetChild(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return this.value;
 				default:
@@ -1266,7 +1290,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override void SetChild(int index, ILInstruction value)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					this.Value = value;
 					break;
@@ -1276,7 +1301,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override SlotInfo GetChildSlot(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return ValueSlot;
 				default:
@@ -1347,7 +1373,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override ILInstruction GetChild(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return this.condition;
 				case 1:
@@ -1360,7 +1387,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override void SetChild(int index, ILInstruction value)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					this.Condition = value;
 					break;
@@ -1376,7 +1404,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override SlotInfo GetChildSlot(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return ConditionSlot;
 				case 1:
@@ -1443,7 +1472,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override ILInstruction GetChild(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return this.valueInst;
 				case 1:
@@ -1454,7 +1484,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override void SetChild(int index, ILInstruction value)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					this.ValueInst = value;
 					break;
@@ -1467,7 +1498,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override SlotInfo GetChildSlot(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return ValueInstSlot;
 				case 1:
@@ -1547,7 +1579,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override ILInstruction GetChild(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return this.body;
 				default:
@@ -1556,7 +1589,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override void SetChild(int index, ILInstruction value)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					this.Body = value;
 					break;
@@ -1566,7 +1600,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override SlotInfo GetChildSlot(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return BodySlot;
 				default:
@@ -1659,7 +1694,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override ILInstruction GetChild(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return this.filter;
 				case 1:
@@ -1670,7 +1706,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override void SetChild(int index, ILInstruction value)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					this.Filter = value;
 					break;
@@ -1683,7 +1720,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override SlotInfo GetChildSlot(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return FilterSlot;
 				case 1:
@@ -1711,26 +1749,26 @@ namespace ICSharpCode.Decompiler.IL
 					variable.AddStoreInstruction(this);
 			}
 		}
-
+		
 		public int IndexInStoreInstructionList { get; set; } = -1;
-
+		
 		int IInstructionWithVariableOperand.IndexInVariableInstructionMapping {
 			get { return ((IStoreInstruction)this).IndexInStoreInstructionList; }
 			set { ((IStoreInstruction)this).IndexInStoreInstructionList = value; }
 		}
-
+		
 		protected override void Connected()
 		{
 			base.Connected();
 			variable.AddStoreInstruction(this);
 		}
-
+		
 		protected override void Disconnected()
 		{
 			variable.RemoveStoreInstruction(this);
 			base.Disconnected();
 		}
-
+		
 		public override void AcceptVisitor(ILVisitor visitor)
 		{
 			visitor.VisitTryCatchHandler(this);
@@ -1834,7 +1872,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override ILInstruction GetChild(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return this.onExpression;
 				case 1:
@@ -1845,7 +1884,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override void SetChild(int index, ILInstruction value)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					this.OnExpression = value;
 					break;
@@ -1858,7 +1898,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override SlotInfo GetChildSlot(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return OnExpressionSlot;
 				case 1:
@@ -1931,26 +1972,26 @@ namespace ICSharpCode.Decompiler.IL
 					variable.AddStoreInstruction(this);
 			}
 		}
-
+		
 		public int IndexInStoreInstructionList { get; set; } = -1;
-
+		
 		int IInstructionWithVariableOperand.IndexInVariableInstructionMapping {
 			get { return ((IStoreInstruction)this).IndexInStoreInstructionList; }
 			set { ((IStoreInstruction)this).IndexInStoreInstructionList = value; }
 		}
-
+		
 		protected override void Connected()
 		{
 			base.Connected();
 			variable.AddStoreInstruction(this);
 		}
-
+		
 		protected override void Disconnected()
 		{
 			variable.RemoveStoreInstruction(this);
 			base.Disconnected();
 		}
-
+		
 		public static readonly SlotInfo ResourceExpressionSlot = new SlotInfo("ResourceExpression", canInlineInto: true);
 		ILInstruction resourceExpression = null!;
 		public ILInstruction ResourceExpression {
@@ -1975,7 +2016,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override ILInstruction GetChild(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return this.resourceExpression;
 				case 1:
@@ -1986,7 +2028,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override void SetChild(int index, ILInstruction value)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					this.ResourceExpression = value;
 					break;
@@ -1999,7 +2042,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override SlotInfo GetChildSlot(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return ResourceExpressionSlot;
 				case 1:
@@ -2267,26 +2311,26 @@ namespace ICSharpCode.Decompiler.IL
 					variable.AddLoadInstruction(this);
 			}
 		}
-
+		
 		public int IndexInLoadInstructionList { get; set; } = -1;
-
+		
 		int IInstructionWithVariableOperand.IndexInVariableInstructionMapping {
 			get { return ((ILoadInstruction)this).IndexInLoadInstructionList; }
 			set { ((ILoadInstruction)this).IndexInLoadInstructionList = value; }
 		}
-
+		
 		protected override void Connected()
 		{
 			base.Connected();
 			variable.AddLoadInstruction(this);
 		}
-
+		
 		protected override void Disconnected()
 		{
 			variable.RemoveLoadInstruction(this);
 			base.Disconnected();
 		}
-
+		
 		public override StackType ResultType { get { return variable.StackType; } }
 		protected override InstructionFlags ComputeFlags()
 		{
@@ -2351,26 +2395,26 @@ namespace ICSharpCode.Decompiler.IL
 					variable.AddAddressInstruction(this);
 			}
 		}
-
+		
 		public int IndexInAddressInstructionList { get; set; } = -1;
-
+		
 		int IInstructionWithVariableOperand.IndexInVariableInstructionMapping {
 			get { return ((IAddressInstruction)this).IndexInAddressInstructionList; }
 			set { ((IAddressInstruction)this).IndexInAddressInstructionList = value; }
 		}
-
+		
 		protected override void Connected()
 		{
 			base.Connected();
 			variable.AddAddressInstruction(this);
 		}
-
+		
 		protected override void Disconnected()
 		{
 			variable.RemoveAddressInstruction(this);
 			base.Disconnected();
 		}
-
+		
 		public override void WriteTo(IDecompilerOutput output, ILAstWritingOptions options)
 		{
 			WriteILRange(output, options);
@@ -2426,26 +2470,26 @@ namespace ICSharpCode.Decompiler.IL
 					variable.AddStoreInstruction(this);
 			}
 		}
-
+		
 		public int IndexInStoreInstructionList { get; set; } = -1;
-
+		
 		int IInstructionWithVariableOperand.IndexInVariableInstructionMapping {
 			get { return ((IStoreInstruction)this).IndexInStoreInstructionList; }
 			set { ((IStoreInstruction)this).IndexInStoreInstructionList = value; }
 		}
-
+		
 		protected override void Connected()
 		{
 			base.Connected();
 			variable.AddStoreInstruction(this);
 		}
-
+		
 		protected override void Disconnected()
 		{
 			variable.RemoveStoreInstruction(this);
 			base.Disconnected();
 		}
-
+		
 		public static readonly SlotInfo ValueSlot = new SlotInfo("Value", canInlineInto: true);
 		ILInstruction value = null!;
 		public ILInstruction Value {
@@ -2461,7 +2505,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override ILInstruction GetChild(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return this.value;
 				default:
@@ -2470,7 +2515,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override void SetChild(int index, ILInstruction value)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					this.Value = value;
 					break;
@@ -2480,7 +2526,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override SlotInfo GetChildSlot(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return ValueSlot;
 				default:
@@ -2557,7 +2604,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override ILInstruction GetChild(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return this.value;
 				default:
@@ -2566,7 +2614,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override void SetChild(int index, ILInstruction value)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					this.Value = value;
 					break;
@@ -2576,7 +2625,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override SlotInfo GetChildSlot(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return ValueSlot;
 				default:
@@ -3063,7 +3113,8 @@ namespace ICSharpCode.Decompiler.IL
 		{
 			WriteILRange(output, options);
 			output.Write(OpCode);
-			if (method != null) {
+			if (method != null)
+			{
 				output.Write(" ", BoxedTextColor.Text);
 				method.WriteTo(output);
 			}
@@ -3113,7 +3164,8 @@ namespace ICSharpCode.Decompiler.IL
 		{
 			WriteILRange(output, options);
 			output.Write(OpCode);
-			if (method != null) {
+			if (method != null)
+			{
 				output.Write(" ", BoxedTextColor.Text);
 				method.WriteTo(output);
 			}
@@ -3175,7 +3227,8 @@ namespace ICSharpCode.Decompiler.IL
 			output.Write(OpCode);
 			output.Write(" ", BoxedTextColor.Text);
 			type.WriteTo(output);
-			if (method != null) {
+			if (method != null)
+			{
 				output.Write(" ", BoxedTextColor.Text);
 				method.WriteTo(output);
 			}
@@ -3418,7 +3471,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override ILInstruction GetChild(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return this.destAddress;
 				case 1:
@@ -3431,7 +3485,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override void SetChild(int index, ILInstruction value)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					this.DestAddress = value;
 					break;
@@ -3447,7 +3502,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override SlotInfo GetChildSlot(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return DestAddressSlot;
 				case 1:
@@ -3568,7 +3624,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override ILInstruction GetChild(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return this.address;
 				case 1:
@@ -3581,7 +3638,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override void SetChild(int index, ILInstruction value)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					this.Address = value;
 					break;
@@ -3597,7 +3655,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override SlotInfo GetChildSlot(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return AddressSlot;
 				case 1:
@@ -3699,7 +3758,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override ILInstruction GetChild(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return this.target;
 				default:
@@ -3708,7 +3768,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override void SetChild(int index, ILInstruction value)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					this.Target = value;
 					break;
@@ -3718,7 +3779,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override SlotInfo GetChildSlot(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return TargetSlot;
 				default:
@@ -3939,7 +4001,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override ILInstruction GetChild(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return this.target;
 				default:
@@ -3948,7 +4011,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override void SetChild(int index, ILInstruction value)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					this.Target = value;
 					break;
@@ -3958,7 +4022,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override SlotInfo GetChildSlot(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return TargetSlot;
 				default:
@@ -4031,6 +4096,116 @@ namespace ICSharpCode.Decompiler.IL
 }
 namespace ICSharpCode.Decompiler.IL
 {
+	/// <summary>If argument is a ref to a reference type, loads the object reference, stores it in a temporary, and evaluates to the address of that temporary (address.of(ldobj(arg))). Otherwise, returns the argument ref as-is.<para>This instruction represents the memory-load semantics of callvirt with a generic type as receiver (where the IL always takes a ref, but only methods on value types expect one, for method on reference types there's an implicit ldobj, which this instruction makes explicit in order to preserve the order-of-evaluation).</para></summary>
+	public sealed partial class LdObjIfRef : ILInstruction
+	{
+		public LdObjIfRef(ILInstruction target, IType type) : base(OpCode.LdObjIfRef)
+		{
+			this.Target = target;
+			this.type = type;
+		}
+		public static readonly SlotInfo TargetSlot = new SlotInfo("Target", canInlineInto: true);
+		ILInstruction target = null!;
+		public ILInstruction Target {
+			get { return this.target; }
+			set {
+				ValidateChild(value);
+				SetChildInstruction(ref this.target, value, 0);
+			}
+		}
+		protected sealed override int GetChildCount()
+		{
+			return 1;
+		}
+		protected sealed override ILInstruction GetChild(int index)
+		{
+			switch (index)
+			{
+				case 0:
+					return this.target;
+				default:
+					throw new IndexOutOfRangeException();
+			}
+		}
+		protected sealed override void SetChild(int index, ILInstruction value)
+		{
+			switch (index)
+			{
+				case 0:
+					this.Target = value;
+					break;
+				default:
+					throw new IndexOutOfRangeException();
+			}
+		}
+		protected sealed override SlotInfo GetChildSlot(int index)
+		{
+			switch (index)
+			{
+				case 0:
+					return TargetSlot;
+				default:
+					throw new IndexOutOfRangeException();
+			}
+		}
+		public sealed override ILInstruction Clone()
+		{
+			var clone = (LdObjIfRef)ShallowClone();
+			clone.Target = this.target.Clone();
+			return clone;
+		}
+		IType type;
+		/// <summary>Returns the type operand.</summary>
+		public IType Type {
+			get { return type; }
+			set { type = value; InvalidateFlags(); }
+		}
+		public override StackType ResultType { get { return StackType.Ref; } }
+		protected override InstructionFlags ComputeFlags()
+		{
+			return target.Flags | InstructionFlags.SideEffect | InstructionFlags.MayThrow;
+		}
+		public override InstructionFlags DirectFlags {
+			get {
+				return InstructionFlags.SideEffect | InstructionFlags.MayThrow;
+			}
+		}
+		public override void WriteTo(IDecompilerOutput output, ILAstWritingOptions options)
+		{
+			WriteILRange(output, options);
+			output.Write(OpCode);
+			output.Write(" ", BoxedTextColor.Text);
+			type.WriteTo(output);
+			var braceInfo = OpenBrace(output, "(");
+			this.target.WriteTo(output, options);
+			CloseBrace(output, braceInfo, ")", CodeBracesRangeFlags.Parentheses);
+		}
+		public override void AcceptVisitor(ILVisitor visitor)
+		{
+			visitor.VisitLdObjIfRef(this);
+		}
+		public override T AcceptVisitor<T>(ILVisitor<T> visitor)
+		{
+			return visitor.VisitLdObjIfRef(this);
+		}
+		public override T AcceptVisitor<C, T>(ILVisitor<C, T> visitor, C context)
+		{
+			return visitor.VisitLdObjIfRef(this, context);
+		}
+		protected internal override bool PerformMatch(ILInstruction? other, ref Patterns.Match match)
+		{
+			var o = other as LdObjIfRef;
+			return o != null && this.target.PerformMatch(o.target, ref match) && type.Equals(o.type);
+		}
+		internal override void CheckInvariant(ILPhase phase)
+		{
+			base.CheckInvariant(phase);
+			DebugAssert(target.ResultType == StackType.Ref || target.ResultType == StackType.I);
+		}
+	}
+}
+namespace ICSharpCode.Decompiler.IL
+{
 	/// <summary>Indirect store (store to ref/pointer).
 	/// Evaluates to the value that was stored (when using type byte/short: evaluates to the truncated value, sign/zero extended back to I4 based on type.GetSign())</summary>
 	public sealed partial class StObj : ILInstruction, ISupportsVolatilePrefix, ISupportsUnalignedPrefix
@@ -4065,7 +4240,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override ILInstruction GetChild(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return this.target;
 				case 1:
@@ -4076,7 +4252,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override void SetChild(int index, ILInstruction value)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					this.Target = value;
 					break;
@@ -4089,7 +4266,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override SlotInfo GetChildSlot(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return TargetSlot;
 				case 1:
@@ -4378,14 +4556,16 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override ILInstruction GetChild(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				default:
 					return this.Indices[index - 0];
 			}
 		}
 		protected sealed override void SetChild(int index, ILInstruction value)
 		{
-			switch (index) {
+			switch (index)
+			{
 				default:
 					this.Indices[index - 0] = (ILInstruction)value;
 					break;
@@ -4393,7 +4573,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override SlotInfo GetChildSlot(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				default:
 					return IndicesSlot;
 			}
@@ -4632,7 +4813,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override ILInstruction GetChild(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return this.array;
 				default:
@@ -4641,7 +4823,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override void SetChild(int index, ILInstruction value)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					this.Array = value;
 					break;
@@ -4651,7 +4834,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override SlotInfo GetChildSlot(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return ArraySlot;
 				default:
@@ -4732,7 +4916,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override ILInstruction GetChild(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return this.array;
 				default:
@@ -4741,7 +4926,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override void SetChild(int index, ILInstruction value)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					this.Array = value;
 					break;
@@ -4752,7 +4938,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override SlotInfo GetChildSlot(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return ArraySlot;
 				default:
@@ -4850,7 +5037,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override ILInstruction GetChild(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return this.argument;
 				default:
@@ -4859,7 +5047,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override void SetChild(int index, ILInstruction value)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					this.Argument = value;
 					break;
@@ -4869,7 +5058,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override SlotInfo GetChildSlot(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return ArgumentSlot;
 				default:
@@ -4899,7 +5089,8 @@ namespace ICSharpCode.Decompiler.IL
 		{
 			WriteILRange(output, options);
 			output.Write(OpCode);
-			if (method != null) {
+			if (method != null)
+			{
 				output.Write(" ", BoxedTextColor.Text);
 				method.WriteTo(output);
 			}
@@ -4951,7 +5142,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override ILInstruction GetChild(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return this.argument;
 				default:
@@ -4960,7 +5152,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override void SetChild(int index, ILInstruction value)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					this.Argument = value;
 					break;
@@ -4970,7 +5163,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override SlotInfo GetChildSlot(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return ArgumentSlot;
 				default:
@@ -5096,7 +5290,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override ILInstruction GetChild(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return this.left;
 				case 1:
@@ -5107,7 +5302,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override void SetChild(int index, ILInstruction value)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					this.Left = value;
 					break;
@@ -5120,7 +5316,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override SlotInfo GetChildSlot(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return LeftSlot;
 				case 1:
@@ -5140,7 +5337,8 @@ namespace ICSharpCode.Decompiler.IL
 		{
 			WriteILRange(output, options);
 			output.Write(OpCode);
-			if (method != null) {
+			if (method != null)
+			{
 				output.Write(" ", BoxedTextColor.Text);
 				method.WriteTo(output);
 			}
@@ -5199,7 +5397,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override ILInstruction GetChild(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return this.left;
 				case 1:
@@ -5210,7 +5409,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override void SetChild(int index, ILInstruction value)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					this.Left = value;
 					break;
@@ -5223,7 +5423,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override SlotInfo GetChildSlot(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return LeftSlot;
 				case 1:
@@ -5287,7 +5488,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override ILInstruction GetChild(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return this.left;
 				case 1:
@@ -5298,7 +5500,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override void SetChild(int index, ILInstruction value)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					this.Left = value;
 					break;
@@ -5311,7 +5514,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override SlotInfo GetChildSlot(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return LeftSlot;
 				case 1:
@@ -5375,7 +5579,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override ILInstruction GetChild(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return this.operand;
 				default:
@@ -5384,7 +5589,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override void SetChild(int index, ILInstruction value)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					this.Operand = value;
 					break;
@@ -5394,7 +5600,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override SlotInfo GetChildSlot(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return OperandSlot;
 				default:
@@ -5461,7 +5668,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override ILInstruction GetChild(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return this.argument;
 				default:
@@ -5470,7 +5678,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override void SetChild(int index, ILInstruction value)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					this.Argument = value;
 					break;
@@ -5480,7 +5689,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override SlotInfo GetChildSlot(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return ArgumentSlot;
 				default:
@@ -5546,7 +5756,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override ILInstruction GetChild(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return this.target;
 				default:
@@ -5555,7 +5766,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override void SetChild(int index, ILInstruction value)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					this.Target = value;
 					break;
@@ -5565,7 +5777,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override SlotInfo GetChildSlot(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return TargetSlot;
 				default:
@@ -5640,7 +5853,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override ILInstruction GetChild(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return this.target;
 				case 1:
@@ -5651,7 +5865,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override void SetChild(int index, ILInstruction value)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					this.Target = value;
 					break;
@@ -5664,7 +5879,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override SlotInfo GetChildSlot(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return TargetSlot;
 				case 1:
@@ -5726,14 +5942,16 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override ILInstruction GetChild(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				default:
 					return this.Arguments[index - 0];
 			}
 		}
 		protected sealed override void SetChild(int index, ILInstruction value)
 		{
-			switch (index) {
+			switch (index)
+			{
 				default:
 					this.Arguments[index - 0] = (ILInstruction)value;
 					break;
@@ -5741,7 +5959,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override SlotInfo GetChildSlot(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				default:
 					return ArgumentsSlot;
 			}
@@ -5794,14 +6013,16 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override ILInstruction GetChild(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				default:
 					return this.Arguments[index - 0];
 			}
 		}
 		protected sealed override void SetChild(int index, ILInstruction value)
 		{
-			switch (index) {
+			switch (index)
+			{
 				default:
 					this.Arguments[index - 0] = (ILInstruction)value;
 					break;
@@ -5809,7 +6030,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override SlotInfo GetChildSlot(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				default:
 					return ArgumentsSlot;
 			}
@@ -5862,14 +6084,16 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override ILInstruction GetChild(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				default:
 					return this.Arguments[index - 0];
 			}
 		}
 		protected sealed override void SetChild(int index, ILInstruction value)
 		{
-			switch (index) {
+			switch (index)
+			{
 				default:
 					this.Arguments[index - 0] = (ILInstruction)value;
 					break;
@@ -5877,7 +6101,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override SlotInfo GetChildSlot(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				default:
 					return ArgumentsSlot;
 			}
@@ -5930,14 +6155,16 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override ILInstruction GetChild(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				default:
 					return this.Arguments[index - 0];
 			}
 		}
 		protected sealed override void SetChild(int index, ILInstruction value)
 		{
-			switch (index) {
+			switch (index)
+			{
 				default:
 					this.Arguments[index - 0] = (ILInstruction)value;
 					break;
@@ -5945,7 +6172,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override SlotInfo GetChildSlot(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				default:
 					return ArgumentsSlot;
 			}
@@ -5998,14 +6226,16 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override ILInstruction GetChild(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				default:
 					return this.Arguments[index - 0];
 			}
 		}
 		protected sealed override void SetChild(int index, ILInstruction value)
 		{
-			switch (index) {
+			switch (index)
+			{
 				default:
 					this.Arguments[index - 0] = (ILInstruction)value;
 					break;
@@ -6013,7 +6243,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override SlotInfo GetChildSlot(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				default:
 					return ArgumentsSlot;
 			}
@@ -6073,7 +6304,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override ILInstruction GetChild(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return this.argument;
 				default:
@@ -6082,7 +6314,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override void SetChild(int index, ILInstruction value)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					this.Argument = value;
 					break;
@@ -6092,7 +6325,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override SlotInfo GetChildSlot(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return ArgumentSlot;
 				default:
@@ -6163,26 +6397,26 @@ namespace ICSharpCode.Decompiler.IL
 					variable.AddStoreInstruction(this);
 			}
 		}
-
+		
 		public int IndexInStoreInstructionList { get; set; } = -1;
-
+		
 		int IInstructionWithVariableOperand.IndexInVariableInstructionMapping {
 			get { return ((IStoreInstruction)this).IndexInStoreInstructionList; }
 			set { ((IStoreInstruction)this).IndexInStoreInstructionList = value; }
 		}
-
+		
 		protected override void Connected()
 		{
 			base.Connected();
 			variable.AddStoreInstruction(this);
 		}
-
+		
 		protected override void Disconnected()
 		{
 			variable.RemoveStoreInstruction(this);
 			base.Disconnected();
 		}
-
+		
 		readonly IMethod? method;
 		/// <summary>Returns the method operand.</summary>
 		public IMethod? Method => method;
@@ -6207,7 +6441,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override ILInstruction GetChild(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return this.testedOperand;
 				default:
@@ -6216,7 +6451,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override void SetChild(int index, ILInstruction value)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					this.TestedOperand = value;
 					break;
@@ -6227,7 +6463,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override SlotInfo GetChildSlot(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return TestedOperandSlot;
 				default:
@@ -6429,7 +6666,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override ILInstruction GetChild(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return this.value;
 				default:
@@ -6438,7 +6676,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override void SetChild(int index, ILInstruction value)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					this.Value = value;
 					break;
@@ -6448,7 +6687,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override SlotInfo GetChildSlot(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return ValueSlot;
 				default:
@@ -6522,7 +6762,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override ILInstruction GetChild(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return this.value;
 				default:
@@ -6531,7 +6772,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override void SetChild(int index, ILInstruction value)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					this.Value = value;
 					break;
@@ -6541,7 +6783,8 @@ namespace ICSharpCode.Decompiler.IL
 		}
 		protected sealed override SlotInfo GetChildSlot(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				case 0:
 					return ValueSlot;
 				default:
@@ -6657,21 +6900,24 @@ namespace ICSharpCode.Decompiler.IL.Patterns
 		}
 		protected sealed override ILInstruction GetChild(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				default:
 					throw new IndexOutOfRangeException();
 			}
 		}
 		protected sealed override void SetChild(int index, ILInstruction value)
 		{
-			switch (index) {
+			switch (index)
+			{
 				default:
 					throw new IndexOutOfRangeException();
 			}
 		}
 		protected sealed override SlotInfo GetChildSlot(int index)
 		{
-			switch (index) {
+			switch (index)
+			{
 				default:
 					throw new IndexOutOfRangeException();
 			}
@@ -6946,6 +7192,10 @@ namespace ICSharpCode.Decompiler.IL
 			Default(inst);
 		}
 		protected internal virtual void VisitLdObj(LdObj inst)
+		{
+			Default(inst);
+		}
+		protected internal virtual void VisitLdObjIfRef(LdObjIfRef inst)
 		{
 			Default(inst);
 		}
@@ -7351,6 +7601,10 @@ namespace ICSharpCode.Decompiler.IL
 		{
 			return Default(inst);
 		}
+		protected internal virtual T VisitLdObjIfRef(LdObjIfRef inst)
+		{
+			return Default(inst);
+		}
 		protected internal virtual T VisitStObj(StObj inst)
 		{
 			return Default(inst);
@@ -7753,6 +8007,10 @@ namespace ICSharpCode.Decompiler.IL
 		{
 			return Default(inst, context);
 		}
+		protected internal virtual T VisitLdObjIfRef(LdObjIfRef inst, C context)
+		{
+			return Default(inst, context);
+		}
 		protected internal virtual T VisitStObj(StObj inst, C context)
 		{
 			return Default(inst, context);
@@ -7964,6 +8222,7 @@ namespace ICSharpCode.Decompiler.IL
 			"castclass",
 			"isinst",
 			"ldobj",
+			"ldobj.if.ref",
 			"stobj",
 			"box",
 			"unbox",
@@ -8201,8 +8460,7 @@ namespace ICSharpCode.Decompiler.IL
 		public bool MatchLdStrUtf8([NotNullWhen(true)] out string? value)
 		{
 			var inst = this as LdStrUtf8;
-			if (inst != null)
-			{
+			if (inst != null) {
 				value = inst.Value;
 				return true;
 			}
@@ -8431,6 +8689,18 @@ namespace ICSharpCode.Decompiler.IL
 			type = default(IType);
 			return false;
 		}
+		public bool MatchLdObjIfRef([NotNullWhen(true)] out ILInstruction? target, [NotNullWhen(true)] out IType? type)
+		{
+			var inst = this as LdObjIfRef;
+			if (inst != null) {
+				target = inst.Target;
+				type = inst.Type;
+				return true;
+			}
+			target = default(ILInstruction);
+			type = default(IType);
+			return false;
+		}
 		public bool MatchStObj([NotNullWhen(true)] out ILInstruction? target, [NotNullWhen(true)] out ILInstruction? value, [NotNullWhen(true)] out IType? type)
 		{
 			var inst = this as StObj;
@@ -8637,3 +8907,4 @@ namespace ICSharpCode.Decompiler.IL
 		}
 	}
 }
+
