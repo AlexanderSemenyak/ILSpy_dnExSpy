@@ -1144,6 +1144,7 @@ namespace ICSharpCode.Decompiler.IL.ControlFlow
 			function.MoveNextMethod = moveNextFunction.Method;
 			function.SequencePointCandidates = moveNextFunction.SequencePointCandidates;
 			function.CodeSize = moveNextFunction.CodeSize;
+			function.LocalVariableSignatureLength = moveNextFunction.LocalVariableSignatureLength;
 			function.IsIterator = IsAsyncEnumerator;
 			moveNextFunction.Variables.Clear();
 			moveNextFunction.ReleaseRef();

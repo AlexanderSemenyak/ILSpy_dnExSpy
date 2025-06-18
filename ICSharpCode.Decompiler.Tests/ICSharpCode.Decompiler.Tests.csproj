@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
@@ -17,7 +17,7 @@
     <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
 
     <NoWarn>1701;1702;1705,67,169,1058,728,1720,649,168,251,660,661,675;1998;162;8632;626;8618;8714;8602;8981</NoWarn>
-    <DefineConstants>ROSLYN;NET60;CS60;CS70;CS71;CS72;CS73;CS80;CS90;CS100;CS110;CS120</DefineConstants>
+    <DefineConstants>ROSLYN;ROSLYN2;ROSLYN3;ROSLYN4;NET60;CS60;CS70;CS71;CS72;CS73;CS80;CS90;CS100;CS110;CS120</DefineConstants>
 
     <GenerateAssemblyVersionAttribute>False</GenerateAssemblyVersionAttribute>
     <GenerateAssemblyFileVersionAttribute>False</GenerateAssemblyFileVersionAttribute>
@@ -91,7 +91,9 @@
     <None Include="TestCases\ILPretty\GuessAccessors.cs" />
     <None Include="TestCases\ILPretty\GuessAccessors.il" />
     <None Include="TestCases\ILPretty\Issue2260SwitchString.il" />
+    <None Include="TestCases\ILPretty\Issue3442.il" />
     <None Include="TestCases\ILPretty\MonoFixed.il" />
+    <None Include="TestCases\Correctness\NonGenericConstrainedCallVirt.il" />
     <None Include="TestCases\ILPretty\UnknownTypes.cs" />
     <None Include="TestCases\ILPretty\UnknownTypes.il" />
     <None Include="TestCases\ILPretty\EvalOrder.cs" />
@@ -102,6 +104,7 @@
     <None Include="TestCases\ILPretty\Issue1922.il" />
     <None Include="TestCases\ILPretty\Issue1918.il" />
     <None Include="TestCases\ILPretty\Issue2104.il" />
+    <None Include="TestCases\ILPretty\Issue3421.il" />
     <None Include="TestCases\ILPretty\WeirdEnums.il" />
     <None Include="TestCases\ILPretty\ConstantBlobs.il" />
     <None Include="TestCases\ILPretty\CS1xSwitch_Debug.il" />
@@ -125,7 +128,14 @@
     <Compile Include="Helpers\RoslynToolset.cs" />
     <Compile Include="Helpers\TestsAssemblyOutput.cs" />
     <Compile Include="Output\InsertParenthesesVisitorTests.cs" />
+    <Compile Include="TestCases\ILPretty\Issue3421.cs" />
+    <Compile Include="TestCases\ILPretty\Issue3442.cs" />
     <Compile Include="TestCases\ILPretty\MonoFixed.cs" />
+    <Compile Include="TestCases\Pretty\Comparisons.cs" />
+    <Compile Include="TestCases\Pretty\Issue3406.cs" />
+    <Compile Include="TestCases\Pretty\PointerArithmetic.cs" />
+    <Compile Include="TestCases\Pretty\Issue3439.cs" />
+    <Compile Include="TestCases\Pretty\Issue3442.cs" />
     <None Include="TestCases\VBPretty\VBAutomaticEvents.vb" />
     <Compile Include="TestCases\VBPretty\VBAutomaticEvents.cs" />
     <Compile Include="TestCases\VBPretty\VBNonGenericForEach.cs" />
@@ -147,7 +157,7 @@
     <None Include="TestCases\Pretty\CovariantReturns.cs" />
     <Compile Include="TestCases\VBPretty\VBPropertiesTest.cs" />
     <None Include="TestCases\ILPretty\Issue2260SwitchString.cs" />
-    <None Include="TestCases\Pretty\Records.cs" />
+    <Compile Include="TestCases\Pretty\Records.cs" />
     <Compile Include="TestCases\VBPretty\Issue2192.cs" />
     <Compile Include="Util\FileUtilityTests.cs" />
     <Compile Include="TestCases\Pretty\FunctionPointers.cs" />
@@ -349,6 +359,10 @@
     <None Include="TestCases\VBPretty\VBCompoundAssign.vb" />
     <None Include="TestCases\VBPretty\Async.vb" />
     <None Include="TestCases\VBPretty\VBPropertiesTest.vb" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="ProjectDecompiler\" />
   </ItemGroup>
 
 </Project>

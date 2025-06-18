@@ -19,6 +19,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection.Metadata;
@@ -135,8 +136,8 @@ namespace ICSharpCode.Decompiler.CSharp.ProjectDecompiler
 
 		public void DecompileProject(MetadataFile file, string targetDirectory, CancellationToken cancellationToken = default(CancellationToken))
 		{
-			string projectFileName = Path.Combine(targetDirectory, CleanUpFileName(file.Name) + ".csproj");
-			using (var writer = new StreamWriter(projectFileName))
+			string projectFileName = Path.Combine(targetDirectory, CleanUpFileName(file.Name, ".csproj"));
+			using (var writer = CreateFile(projectFileName))
 			{
 				DecompileProject(file, targetDirectory, writer, cancellationToken);
 			}
@@ -185,6 +186,24 @@ namespace ICSharpCode.Decompiler.CSharp.ProjectDecompiler
 			return true;
 		}
 
+		protected virtual TextWriter CreateFile(string path)
+		{
+			return new StreamWriter(path);
+		}
+
+		protected virtual void CreateDirectory(string path)
+		{
+			try
+			{
+				Directory.CreateDirectory(path);
+			}
+			catch (IOException)
+			{
+				File.Delete(path);
+				Directory.CreateDirectory(path);
+			}
+		}
+
 		CSharpDecompiler CreateDecompiler(DecompilerTypeSystem ts)
 		{
 			var decompiler = new CSharpDecompiler(ts, Settings);
@@ -203,9 +222,9 @@ namespace ICSharpCode.Decompiler.CSharp.ProjectDecompiler
 
 			const string prop = "Properties";
 			if (directories.Add(prop))
-				Directory.CreateDirectory(Path.Combine(TargetDirectory, prop));
+				CreateDirectory(Path.Combine(TargetDirectory, prop));
 			string assemblyInfo = Path.Combine(prop, "AssemblyInfo.cs");
-			using (StreamWriter w = new StreamWriter(Path.Combine(TargetDirectory, assemblyInfo)))
+			using (var w = CreateFile(Path.Combine(TargetDirectory, assemblyInfo)))
 			{
 				syntaxTree.AcceptVisitor(new CSharpOutputVisitor(w, Settings.CSharpFormattingOptions));
 			}
@@ -238,7 +257,7 @@ namespace ICSharpCode.Decompiler.CSharp.ProjectDecompiler
 			string GetFileFileNameForHandle(TypeDefinitionHandle h)
 			{
 				var type = metadata.GetTypeDefinition(h);
-				string file = SanitizeFileName(metadata.GetString(type.Name) + ".cs");
+				string file = CleanUpFileName(metadata.GetString(type.Name), ".cs");
 				string ns = metadata.GetString(type.Namespace);
 				if (string.IsNullOrEmpty(ns))
 				{
@@ -250,15 +269,7 @@ namespace ICSharpCode.Decompiler.CSharp.ProjectDecompiler
 					if (directories.Add(dir))
 					{
 						var path = Path.Combine(TargetDirectory, dir);
-						try
-						{
-							Directory.CreateDirectory(path);
-						}
-						catch (IOException)
-						{
-							File.Delete(path);
-							Directory.CreateDirectory(path);
-						}
+						CreateDirectory(path);
 					}
 					return Path.Combine(dir, file);
 				}
@@ -276,7 +287,7 @@ namespace ICSharpCode.Decompiler.CSharp.ProjectDecompiler
 					delegate (IGrouping<string, TypeDefinitionHandle> file) {
 						try
 						{
-							using StreamWriter w = new StreamWriter(Path.Combine(TargetDirectory, file.Key));
+							using var w = CreateFile(Path.Combine(TargetDirectory, file.Key));
 							CSharpDecompiler decompiler = CreateDecompiler(ts);
 
 							foreach (var partialType in partialTypes)
@@ -339,12 +350,11 @@ namespace ICSharpCode.Decompiler.CSharp.ProjectDecompiler
 						{
 							foreach (var (name, value) in resourcesFile)
 							{
-								string fileName = SanitizeFileName(name)
-									.Replace('/', Path.DirectorySeparatorChar);
+								string fileName = SanitizeFileName(name);
 								string dirName = Path.GetDirectoryName(fileName);
 								if (!string.IsNullOrEmpty(dirName) && directories.Add(dirName))
 								{
-									Directory.CreateDirectory(Path.Combine(TargetDirectory, dirName));
+									CreateDirectory(Path.Combine(TargetDirectory, dirName));
 								}
 								Stream entryStream = (Stream)value;
 								entryStream.Position = 0;
@@ -609,9 +619,14 @@ namespace ICSharpCode.Decompiler.CSharp.ProjectDecompiler
 		/// <summary>
 		/// Cleans up a node name for use as a file name.
 		/// </summary>
-		public static string CleanUpFileName(string text)
+		public static string CleanUpFileName(string text, string extension)
 		{
-			return CleanUpName(text, separateAtDots: false, treatAsFileName: false);
+			Debug.Assert(!string.IsNullOrEmpty(extension));
+			if (!extension.StartsWith("."))
+				extension = "." + extension;
+			text = text + extension;
+
+			return CleanUpName(text, separateAtDots: false, treatAsFileName: !string.IsNullOrEmpty(extension), treatAsPath: false);
 		}
 
 		/// <summary>
@@ -620,7 +635,7 @@ namespace ICSharpCode.Decompiler.CSharp.ProjectDecompiler
 		/// </summary>
 		public static string SanitizeFileName(string fileName)
 		{
-			return CleanUpName(fileName, separateAtDots: false, treatAsFileName: true);
+			return CleanUpName(fileName, separateAtDots: false, treatAsFileName: true, treatAsPath: true);
 		}
 
 		/// <summary>
@@ -629,15 +644,11 @@ namespace ICSharpCode.Decompiler.CSharp.ProjectDecompiler
 		/// If <paramref name="treatAsFileName"/> is active, we check for file a extension and try to preserve it,
 		/// if it's valid.
 		/// </summary>
-		static string CleanUpName(string text, bool separateAtDots, bool treatAsFileName)
+		static string CleanUpName(string text, bool separateAtDots, bool treatAsFileName, bool treatAsPath)
 		{
-			// Remove anything that could be confused with a rooted path.
-			int pos = text.IndexOf(':');
-			if (pos > 0)
-				text = text.Substring(0, pos);
-			text = text.Trim();
 			string extension = null;
 			int currentSegmentLength = 0;
+			// Extract extension from the end of the name, if valid
 			if (treatAsFileName)
 			{
 				// Check if input is a file name, i.e., has a valid extension
@@ -663,6 +674,11 @@ namespace ICSharpCode.Decompiler.CSharp.ProjectDecompiler
 					}
 				}
 			}
+			// Remove anything that could be confused with a rooted path.
+			int pos = text.IndexOf(':');
+			if (pos > 0)
+				text = text.Substring(0, pos);
+			text = text.Trim();
 			// Remove generics
 			pos = text.IndexOf('`');
 			if (pos > 0)
@@ -692,10 +708,10 @@ namespace ICSharpCode.Decompiler.CSharp.ProjectDecompiler
 					if (separateAtDots)
 						currentSegmentLength = 0;
 				}
-				else if (treatAsFileName && (c == '/' || c == '\\') && currentSegmentLength > 1)
+				else if (treatAsPath && (c is '/' or '\\') && currentSegmentLength > 1)
 				{
 					// if we treat this as a file name, we've started a new segment
-					b.Append(c);
+					b.Append(Path.DirectorySeparatorChar);
 					currentSegmentLength = 0;
 				}
 				else
@@ -732,12 +748,12 @@ namespace ICSharpCode.Decompiler.CSharp.ProjectDecompiler
 		/// </summary>
 		public static string CleanUpDirectoryName(string text)
 		{
-			return CleanUpName(text, separateAtDots: false, treatAsFileName: false);
+			return CleanUpName(text, separateAtDots: false, treatAsFileName: false, treatAsPath: false);
 		}
 
 		public static string CleanUpPath(string text)
 		{
-			return CleanUpName(text, separateAtDots: true, treatAsFileName: false)
+			return CleanUpName(text, separateAtDots: true, treatAsFileName: false, treatAsPath: true)
 				.Replace('.', Path.DirectorySeparatorChar);
 		}
 

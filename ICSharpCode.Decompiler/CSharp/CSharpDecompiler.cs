@@ -149,6 +149,7 @@ namespace ICSharpCode.Decompiler.CSharp
 							new IndexRangeTransform(),
 							new DeconstructionTransform(),
 							new NamedArgumentTransform(),
+							new RemoveUnconstrainedGenericReferenceTypeCheck(),
 							new UserDefinedLogicTransform(),
 							new InterpolatedStringTransform()
 						),
@@ -482,6 +483,8 @@ namespace ICSharpCode.Decompiler.CSharp
 		{
 			var typeSystemAstBuilder = new TypeSystemAstBuilder();
 			typeSystemAstBuilder.ShowAttributes = true;
+			typeSystemAstBuilder.UsePrivateProtectedAccessibility = settings.IntroducePrivateProtectedAccessibility;
+			typeSystemAstBuilder.SortAttributes = settings.SortCustomAttributes;
 			typeSystemAstBuilder.AlwaysUseShortTypeNames = true;
 			typeSystemAstBuilder.AddResolveResultAnnotations = true;
 			typeSystemAstBuilder.UseNullableSpecifierForValueTypes = settings.LiftNullables;
@@ -1027,8 +1030,7 @@ namespace ICSharpCode.Decompiler.CSharp
 				methodDecl.TypeParameters.AddRange(memberDecl.GetChildrenByRole(Roles.TypeParameter)
 												   .Select(n => (TypeParameterDeclaration)n.Clone()));
 				methodDecl.Parameters.AddRange(memberDecl.GetChildrenByRole(Roles.Parameter).Select(n => n.Clone()));
-				methodDecl.Constraints.AddRange(memberDecl.GetChildrenByRole(Roles.Constraint)
-												.Select(n => (Constraint)n.Clone()));
+				// Constraints are not copied because explicit interface implementations cannot have constraints. CS0460
 
 				methodDecl.Body = new BlockStatement();
 				methodDecl.Body.AddChild(new Comment(
@@ -1136,7 +1138,7 @@ namespace ICSharpCode.Decompiler.CSharp
 			{
 				if (string.IsNullOrWhiteSpace(parameter.Name) && !parameter.Type.IsArgList())
 				{
-					// needs to be consistent with logic in ILReader.CreateILVarable
+					// needs to be consistent with logic in ILReader.CreateILVariable
 					parameter.Name = "P_" + i;
 				}
 				i++;
@@ -1563,7 +1565,9 @@ namespace ICSharpCode.Decompiler.CSharp
 		{
 			try {
 				var ilReader = new ILReader(typeSystem.MainModule) {
-					UseDebugSymbols = settings.UseDebugSymbols
+					UseDebugSymbols = settings.UseDebugSymbols,
+					UseRefLocalsForAccurateOrderOfEvaluation = settings.UseRefLocalsForAccurateOrderOfEvaluation,
+					DebugInfo = DebugInfoProvider
 				};
 				var body = BlockStatement.Null;
 				var methodDefinition = (MethodDef)method.MetadataToken;

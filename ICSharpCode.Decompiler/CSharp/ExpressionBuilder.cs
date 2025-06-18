@@ -1219,7 +1219,7 @@ namespace ICSharpCode.Decompiler.CSharp
 		/// Returns null if 'inst' is not performing pointer arithmetic.
 		/// 'ptr - ptr' is not handled here, but in HandlePointerSubtraction()!
 		/// </summary>
-		TranslatedExpression? HandlePointerArithmetic(BinaryNumericInstruction inst, TranslatedExpression left, TranslatedExpression right)
+		TranslatedExpression? HandlePointerArithmetic(BinaryNumericInstruction inst, TranslatedExpression left, TranslatedExpression right, TranslationContext context)
 		{
 			if (!(inst.Operator == BinaryNumericOperator.Add || inst.Operator == BinaryNumericOperator.Sub))
 				return null;
@@ -1248,7 +1248,27 @@ namespace ICSharpCode.Decompiler.CSharp
 			{
 				return null;
 			}
-			TranslatedExpression offsetExpr = GetPointerArithmeticOffset(byteOffsetInst, byteOffsetExpr, pointerType.ElementType, inst.CheckForOverflow)
+			TranslatedExpression? offsetExpressionFromTypeHint = null;
+			if (context.TypeHint.Kind == TypeKind.Pointer)
+			{
+				// We use the type hint if one of the following is true:
+				// * The current element type is a non-primitive struct.
+				// * The current element type has a different size than the type hint element type.
+				// This prevents the type hint from overriding in undesirable situations (eg changing char* to short*).
+
+				var typeHint = (PointerType)context.TypeHint;
+				int elementTypeSize = pointerType.ElementType.GetSize();
+				if (elementTypeSize == 0 || typeHint.ElementType.GetSize() != elementTypeSize)
+				{
+					offsetExpressionFromTypeHint = GetPointerArithmeticOffset(byteOffsetInst, byteOffsetExpr, typeHint.ElementType, inst.CheckForOverflow);
+					if (offsetExpressionFromTypeHint != null)
+					{
+						pointerType = typeHint;
+					}
+				}
+			}
+			TranslatedExpression offsetExpr = offsetExpressionFromTypeHint
+				?? GetPointerArithmeticOffset(byteOffsetInst, byteOffsetExpr, pointerType.ElementType, inst.CheckForOverflow)
 				?? FallBackToBytePointer();
 
 			if (left.Type.Kind == TypeKind.Pointer)
@@ -1533,7 +1553,7 @@ namespace ICSharpCode.Decompiler.CSharp
 			}
 			if (left.Type.Kind == TypeKind.Pointer || right.Type.Kind == TypeKind.Pointer)
 			{
-				var ptrResult = HandlePointerArithmetic(inst, left, right);
+				var ptrResult = HandlePointerArithmetic(inst, left, right, context);
 				if (ptrResult != null)
 					return ptrResult.Value;
 			}
@@ -2546,15 +2566,18 @@ namespace ICSharpCode.Decompiler.CSharp
 			foreach (var parameter in parameters)
 			{
 				var pd = astBuilder.ConvertParameter(parameter);
+				if (variables.TryGetValue(i, out var v))
+				{
+					pd.AddAnnotation(new ILVariableResolveResult(v, parameters[i].Type));
+					pd.Name = v.Name;
+				}
 				if (string.IsNullOrEmpty(pd.Name) && !pd.Type.IsArgList())
 				{
-					// needs to be consistent with logic in ILReader.CreateILVarable(ParameterDefinition)
+					// needs to be consistent with logic in ILReader.CreateILVariable
 					pd.Name = "P_" + i;
 				}
 				if (settings.AnonymousTypes && parameter.Type.ContainsAnonymousType())
 					pd.Type = null;
-				if (variables.TryGetValue(i, out var v))
-					pd.AddAnnotation(new ILVariableResolveResult(v, parameters[i].Type));
 				yield return pd;
 				i++;
 			}
@@ -2610,7 +2633,7 @@ namespace ICSharpCode.Decompiler.CSharp
 		}
 
 		internal TranslatedExpression TranslateTarget(ILInstruction target, bool nonVirtualInvocation,
-			bool memberStatic, IType memberDeclaringType)
+			bool memberStatic, IType memberDeclaringType, IType constrainedTo = null)
 		{
 			// If references are missing member.IsStatic might not be set correctly.
 			// Additionally check target for null, in order to avoid a crash.
@@ -2626,8 +2649,8 @@ namespace ICSharpCode.Decompiler.CSharp
 				}
 				else
 				{
-					IType targetTypeHint = memberDeclaringType;
-					if (CallInstruction.ExpectedTypeForThisPointer(memberDeclaringType) == StackType.Ref)
+					IType targetTypeHint = constrainedTo ?? memberDeclaringType;
+					if (CallInstruction.ExpectedTypeForThisPointer(memberDeclaringType, constrainedTo) == StackType.Ref)
 					{
 						if (target.ResultType == StackType.Ref)
 						{
@@ -2639,13 +2662,13 @@ namespace ICSharpCode.Decompiler.CSharp
 						}
 					}
 					var translatedTarget = Translate(target, targetTypeHint);
-					if (CallInstruction.ExpectedTypeForThisPointer(memberDeclaringType) == StackType.Ref)
+					if (CallInstruction.ExpectedTypeForThisPointer(memberDeclaringType, constrainedTo) == StackType.Ref)
 					{
 						// When accessing members on value types, ensure we use a reference of the correct type,
 						// and not a pointer or a reference to a different type (issue #1333)
-						if (!(translatedTarget.Type is ByReferenceType brt && NormalizeTypeVisitor.TypeErasure.EquivalentTypes(brt.ElementType, memberDeclaringType)))
+						if (!(translatedTarget.Type is ByReferenceType brt && NormalizeTypeVisitor.TypeErasure.EquivalentTypes(brt.ElementType, constrainedTo ?? memberDeclaringType)))
 						{
-							translatedTarget = translatedTarget.ConvertTo(new ByReferenceType(memberDeclaringType), this);
+							translatedTarget = translatedTarget.ConvertTo(new ByReferenceType(constrainedTo ?? memberDeclaringType), this);
 						}
 					}
 					if (translatedTarget.Expression is DirectionExpression)
@@ -2671,9 +2694,9 @@ namespace ICSharpCode.Decompiler.CSharp
 			}
 			else
 			{
-				return new TypeReferenceExpression(ConvertType(memberDeclaringType))
+				return new TypeReferenceExpression(ConvertType(constrainedTo ?? memberDeclaringType))
 					.WithoutILInstruction()
-					.WithRR(new TypeResolveResult(memberDeclaringType));
+					.WithRR(new TypeResolveResult(constrainedTo ?? memberDeclaringType));
 			}
 
 			bool ShouldUseBaseReference()
@@ -2682,7 +2705,7 @@ namespace ICSharpCode.Decompiler.CSharp
 					return false;
 				if (!MatchLdThis(target))
 					return false;
-				if (memberDeclaringType.GetDefinition() == resolver.CurrentTypeDefinition)
+				if ((constrainedTo ?? memberDeclaringType).GetDefinition() == resolver.CurrentTypeDefinition)
 					return false;
 				return true;
 			}

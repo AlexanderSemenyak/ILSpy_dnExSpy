@@ -89,7 +89,7 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 				return false;
 			if (storeInst.Variable.LoadInstructions.Any(ld => !ld.IsDescendantOf(tryFinally)))
 				return false;
-			if (storeInst.Variable.AddressInstructions.Any(la => !la.IsDescendantOf(tryFinally) || (la.IsDescendantOf(tryFinally.TryBlock) && !ILInlining.IsUsedAsThisPointerInCall(la))))
+			if (!storeInst.Variable.AddressInstructions.All(ValidateAddressUse))
 				return false;
 			if (storeInst.Variable.StoreInstructions.Count > 1)
 				return false;
@@ -104,6 +104,18 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 				IsRefStruct = context.Settings.IntroduceRefModifiersOnStructs && storeInst.Variable.Type.Kind == TypeKind.Struct && storeInst.Variable.Type.IsByRefLike
 			}.WithILRange(storeInst);
 			return true;
+
+			bool ValidateAddressUse(LdLoca la)
+			{
+				if (!la.IsDescendantOf(tryFinally))
+					return false;
+				if (la.IsDescendantOf(tryFinally.TryBlock))
+				{
+					if (!(ILInlining.IsUsedAsThisPointerInCall(la) || ILInlining.IsPassedToInParameter(la)))
+						return false;
+				}
+				return true;
+			}
 		}
 
 		/// <summary>
@@ -304,7 +316,10 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 					// the null check of reference types might have been transformed into "objVar?.Dispose();"
 					if (!(rewrap.Argument is CallVirt cv))
 						return false;
-					if (!(cv.Arguments.FirstOrDefault() is NullableUnwrap unwrap))
+					target = cv.Arguments.FirstOrDefault();
+					if (target is LdObjIfRef ldObjIfRef)
+						target = ldObjIfRef.Target;
+					if (!(target is NullableUnwrap unwrap))
 						return false;
 					numObjVarLoadsInCheck = 1;
 					disposeCall = cv;
@@ -330,6 +345,8 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 					target = cv.Arguments.FirstOrDefault();
 					if (target == null)
 						return false;
+					if (target is LdObjIfRef ldObjIfRef)
+						target = ldObjIfRef.Target;
 					if (target.MatchBox(out var newTarget, out var type) && type.Equals(objVar.Type))
 						target = newTarget;
 					else if (isInlinedIsInst && target.MatchIsInst(out newTarget, out type) && type.IsKnownType(disposeTypeCode))

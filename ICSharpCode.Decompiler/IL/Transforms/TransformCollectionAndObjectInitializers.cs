@@ -73,14 +73,6 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 					instType = newObjInst.Method.DeclaringType;
 					break;
 				case DefaultValue defaultVal:
-					if (defaultVal.ILStackWasEmpty && v.Kind == VariableKind.Local && !currentMethod.IsConstructor)
-					{
-						// on statement level (no other expressions on IL stack),
-						// prefer to keep local variables (but not stack slots),
-						// unless we are in a constructor (where inlining object initializers might be
-						// critical for the base ctor call)
-						return;
-					}
 					instType = defaultVal.Type;
 					break;
 				case Call c when c.Method.FullNameIs("System.Activator", "CreateInstance") && c.Method.TypeArguments.Count == 1:
@@ -103,6 +95,7 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 					return;
 			}
 			int initializerItemsCount = 0;
+			bool initializerContainsInitOnlyItems = false;
 			possibleIndexVariables.Clear();
 			currentPath.Clear();
 			isCollection = false;
@@ -113,13 +106,13 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 			// if the method is a setter we're dealing with an object initializer
 			// if the method is named Add and has at least 2 arguments we're dealing with a collection/dictionary initializer
 			while (pos + initializerItemsCount + 1 < block.Instructions.Count
-				&& IsPartOfInitializer(block.Instructions, pos + initializerItemsCount + 1, v, instType, ref blockKind, context))
+				&& IsPartOfInitializer(block.Instructions, pos + initializerItemsCount + 1, v, instType, ref blockKind, ref initializerContainsInitOnlyItems, context))
 			{
 				initializerItemsCount++;
 			}
 			// Do not convert the statements into an initializer if there's an incompatible usage of the initializer variable
 			// directly after the possible initializer.
-			if (IsMethodCallOnVariable(block.Instructions[pos + initializerItemsCount + 1], v))
+			if (!initializerContainsInitOnlyItems && IsMethodCallOnVariable(block.Instructions[pos + initializerItemsCount + 1], v))
 				return;
 			// Calculate the correct number of statements inside the initializer:
 			// All index variables that were used in the initializer have Index set to -1.
@@ -200,7 +193,7 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 		bool isCollection;
 		readonly Stack<HashSet<AccessPathElement>> pathStack = new Stack<HashSet<AccessPathElement>>();
 
-		bool IsPartOfInitializer(InstructionCollection<ILInstruction> instructions, int pos, ILVariable target, IType rootType, ref BlockKind blockKind, StatementTransformContext context)
+		bool IsPartOfInitializer(InstructionCollection<ILInstruction> instructions, int pos, ILVariable target, IType rootType, ref BlockKind blockKind, ref bool initializerContainsInitOnlyItems, StatementTransformContext context)
 		{
 			// Include any stores to local variables that are single-assigned and do not reference the initializer-variable
 			// in the list of possible index variables.
@@ -255,6 +248,7 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 						return false;
 					if (blockKind != BlockKind.ObjectInitializer && blockKind != BlockKind.WithInitializer)
 						blockKind = BlockKind.ObjectInitializer;
+					initializerContainsInitOnlyItems |= lastElement.Member is IProperty { Setter.IsInitOnly: true };
 					return true;
 				default:
 					return false;
@@ -324,6 +318,10 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 						if (resolveContext != null && !IsMethodApplicable(method, call.Arguments, rootType, resolveContext, settings))
 							goto default;
 						inst = call.Arguments[0];
+						if (inst is LdObjIfRef ldObjIfRef)
+						{
+							inst = ldObjIfRef.Target;
+						}
 						if (method.IsAccessor)
 						{
 							if (method.AccessorOwner is IProperty property &&
@@ -373,6 +371,22 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 						{
 							path.Insert(0, new AccessPathElement(ldobj.OpCode, ldflda.Field));
 							inst = ldflda.Target;
+							break;
+						}
+						goto default;
+					}
+					case LdObjIfRef ldobj:
+					{
+						if (ldobj.Target is LdFlda ldflda && (kind != AccessPathKind.Setter || !ldflda.Field.IsReadOnly))
+						{
+							path.Insert(0, new AccessPathElement(ldobj.OpCode, ldflda.Field));
+							inst = ldflda.Target;
+							break;
+						}
+						if (ldobj.Target is LdLoca ldloca)
+						{
+							target = ldloca.Variable;
+							inst = null;
 							break;
 						}
 						goto default;

@@ -67,8 +67,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="dnlib" Version="4.4.0" />
-    <PackageReference Include="Microsoft.Sbom.Targets" Version="3.0.1">
+    <PackageReference Include="dnlib" Version="4.5.0" />
+    <PackageReference Include="Microsoft.Sbom.Targets" Version="3.1.0">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
@@ -92,6 +92,7 @@
     <Compile Include="CSharp\CSharpLanguageVersion.cs" />
     <Compile Include="CSharp\Syntax\Expressions\RecursivePatternExpression.cs" />
     <Compile Include="DecompilationProgress.cs" />
+    <Compile Include="IL\Transforms\RemoveUnconstrainedGenericReferenceTypeCheck.cs" />
     <Compile Include="Metadata\MetadataFile.cs" />
     <Compile Include="NRTAttributes.cs" />
     <Compile Include="PartialTypeInfo.cs" />
@@ -125,6 +126,7 @@
     <Compile Include="Metadata\ReferenceLoadInfo.cs" />
     <Compile Include="TypeSystem\ITypeDefinitionOrUnknown.cs" />
     <Compile Include="Util\BitOperations.cs" />
+    <Compile Include="Util\DelegateComparer.cs" />
     <Compile Include="Util\Index.cs" />
     <None Include="Properties\DecompilerVersionInfo.template.cs" />
     <Compile Include="Semantics\OutVarResolveResult.cs" />
