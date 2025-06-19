@@ -83,6 +83,8 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 					instType = ci.Method.DeclaringType;
 					blockKind = BlockKind.WithInitializer;
 					initInst = ci.Arguments.Single();
+					if (context.CalculateILSpans)
+						initInst.ILSpans.AddRange(ci.ILSpans);
 					break;
 				default:
 					var typeDef = v.Type.GetDefinition();

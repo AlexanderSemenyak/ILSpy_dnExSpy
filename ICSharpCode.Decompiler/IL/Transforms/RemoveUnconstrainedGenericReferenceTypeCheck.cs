@@ -138,7 +138,16 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 			foreach (var (argument, expr) in replacements)
 			{
 				argument.ReplaceWith(expr);
+				if (context.CalculateILSpans)
+					expr.ILSpans.AddRange(argument.ILSpans);
 			}
+
+			if (context.CalculateILSpans)
+			{
+				for (int i = startPos; i < containingStmt.ChildIndex; i++)
+					block.Instructions[i].AddSelfAndChildrenRecursiveILSpans(ldobjIfRef.ILSpans);
+			}
+
 			block.Instructions.RemoveRange(startPos, containingStmt.ChildIndex - startPos);
 		}
 	}

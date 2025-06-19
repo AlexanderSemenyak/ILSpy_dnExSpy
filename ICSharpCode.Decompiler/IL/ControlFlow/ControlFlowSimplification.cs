@@ -85,10 +85,12 @@ namespace ICSharpCode.Decompiler.IL.ControlFlow
 				{
 					// In the case where the pop instruction is the first instruction in the block, move the ILSpans to the last instruction (a branch) of the previous block.
 					var index = container.Blocks.IndexOf(block);
-					int lookBack = 0;
-					while (lookBack++ <= 2 && index - lookBack >= 0)
+					int lookBack = 1;
+					while (true)
 					{
-						var previous = container.Blocks[index - lookBack];
+						if (index - lookBack < 0)
+							break; // no previous block
+						var previous = container.Blocks[index - lookBack++];
 						var last = previous.Instructions.LastOrDefault();
 						if (last is null)
 							continue;

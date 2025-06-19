@@ -2671,7 +2671,7 @@ namespace ICSharpCode.Decompiler.CSharp
 				if (variables.TryGetValue(i, out var v))
 				{
 					pd.AddAnnotation(new ILVariableResolveResult(v, parameters[i].Type));
-					pd.Name = v.Name;
+					pd.NameToken.Name = v.Name;
 				}
 				if (string.IsNullOrEmpty(pd.Name) && !pd.Type.IsArgList())
 				{

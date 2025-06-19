@@ -1467,7 +1467,7 @@ namespace ICSharpCode.Decompiler.CSharp
 				{
 					if (variables.TryGetValue(i, out var v))
 					{
-						p.Name = v.Name;
+						p.NameToken.Name = v.Name;
 					}
 				}
 

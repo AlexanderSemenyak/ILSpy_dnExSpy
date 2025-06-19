@@ -342,6 +342,8 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 			if (TransformArrayInitializers.TransformRuntimeHelpersCreateSpanInitialization(inst, context, out var replacement2))
 			{
 				context.Step("TransformRuntimeHelpersCreateSpanInitialization: single-dim", inst);
+				if (context.CalculateILSpans)
+					inst.AddSelfAndChildrenRecursiveILSpans(replacement2.ILSpans);
 				inst.ReplaceWith(replacement2);
 				return;
 			}
@@ -550,6 +552,8 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 				context.Step("ldobj.if.ref(addressof(...)) -> addressof(...)", inst);
 				// there already is a temporary, so the ldobj.if.ref is a no-op in both cases
 				inst.ReplaceWith(inst.Target);
+				if (context.CalculateILSpans)
+					inst.Target.ILSpans.AddRange(inst.ILSpans);
 				return;
 			}
 			if (inst.Target.MatchLdLoc(out var s) && s.IsSingleDefinition && s.LoadCount == 1
@@ -560,6 +564,8 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 				context.Step("Single use of ldobj.if.ref(ldloc v) -> ldloc v", inst);
 				// there already is a temporary, so the ldobj.if.ref is a no-op in both cases
 				inst.ReplaceWith(inst.Target);
+				if (context.CalculateILSpans)
+					inst.Target.ILSpans.AddRange(inst.ILSpans);
 				return;
 			}
 		}

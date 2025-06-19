@@ -34,7 +34,8 @@ namespace ICSharpCode.Decompiler.CSharp
 			try {
 				var ilReader = new ILReader(typeSystem.MainModule) {
 					UseDebugSymbols = decompileRun.Settings.UseDebugSymbols,
-					CalculateILSpans = context.CalculateILSpans
+					CalculateILSpans = context.CalculateILSpans,
+					UseRefLocalsForAccurateOrderOfEvaluation = decompileRun.Settings.UseRefLocalsForAccurateOrderOfEvaluation,
 				};
 				var body = BlockStatement.Null;
 				function = ilReader.ReadIL(methodDef, cancellationToken: context.CancellationToken);
